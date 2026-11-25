@@ -883,8 +883,12 @@
         box-shadow: inset 0 0 0 1px #cbdbea;
       }
       #tableBody td:nth-child(2)::before { content: "№"; font-weight: 500; color: #71849a; }
-      #tableBody td:nth-child(3) { grid-column: 4 / 8; grid-row: 1; }
-      #tableBody td:nth-child(13) { grid-column: 7 / 8; grid-row: 2; display: flex; align-items: center; justify-content: center; }
+      #tableBody td:nth-child(3) { grid-column: 4 / 7; grid-row: 1; }
+      #tableBody td:nth-child(3) input.name-inp {
+        width: 100%; min-width: 0; box-sizing: border-box;
+        font-size: 15px; padding-left: 9px; padding-right: 9px;
+      }
+      #tableBody td:nth-child(13) { grid-column: 7 / 8; grid-row: 1; display: flex; align-items: center; justify-content: center; }
       #tableBody td:nth-child(4) {
         grid-column: 3 / 5; grid-row: 2; align-self: center;
         display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -902,6 +906,22 @@
         white-space: nowrap; border-radius: 999px;
         color: #79551a; background: linear-gradient(145deg, #fff4d9, #f8e4b5) !important;
         box-shadow: inset 0 0 0 1px #ecd49d;
+      }
+      /* Ранговые медали: повышенная специфичность перекрывает прозрачный фон карточки */
+      #tableBody td.row-num.rank-place-1 {
+        color: #76520b !important;
+        background: linear-gradient(145deg, #fff0a8 0%, #f2d36f 48%, #d6a52f 100%) !important;
+        box-shadow: inset 0 0 0 2px #c99524, 0 2px 5px #c9952455 !important;
+      }
+      #tableBody td.row-num.rank-place-2 {
+        color: #53606c !important;
+        background: linear-gradient(145deg, #ffffff 0%, #e1e6eb 48%, #aeb8c3 100%) !important;
+        box-shadow: inset 0 0 0 2px #aab4bf, 0 2px 5px #aab4bf66 !important;
+      }
+      #tableBody td.row-num.rank-place-3 {
+        color: #784326 !important;
+        background: linear-gradient(145deg, #f6d2b5 0%, #d99a70 48%, #ad623b 100%) !important;
+        box-shadow: inset 0 0 0 2px #b87851, 0 2px 5px #b8785166 !important;
       }
       #tableBody td:nth-child(4)::before { content: "Кол-во:"; font-size: 13px; font-weight: 500; color: #648c7c; }
       #tableBody td:nth-child(12)::before { content: "Балл:"; font-size: 13px; font-weight: 500; color: #a18550; }
@@ -1944,6 +1964,44 @@
         return { rows };
       }
 
+      // Прокрутка длинного имени: включается только если текст не помещается в поле.
+      function stopNameMarquee(input, reset = false) {
+        if (input._nameMarqueeTimer) {
+          clearInterval(input._nameMarqueeTimer);
+          input._nameMarqueeTimer = null;
+        }
+        if (input._nameMarqueePause) {
+          clearTimeout(input._nameMarqueePause);
+          input._nameMarqueePause = null;
+        }
+        if (reset) input.scrollLeft = 0;
+      }
+
+      function startNameMarquee(input) {
+        if (!input || input.classList.contains('is-marquee-disabled')) return;
+        stopNameMarquee(input, true);
+        if (document.activeElement === input) return;
+        if (input.scrollWidth <= input.clientWidth + 2) return;
+
+        const tick = () => {
+          const maxScroll = Math.max(0, input.scrollWidth - input.clientWidth);
+          if (maxScroll <= 2) {
+            stopNameMarquee(input, true);
+            return;
+          }
+          if (input.scrollLeft >= maxScroll - 1) {
+            stopNameMarquee(input, false);
+            input._nameMarqueePause = setTimeout(() => {
+              input.scrollLeft = 0;
+              startNameMarquee(input);
+            }, 900);
+            return;
+          }
+          input.scrollLeft = Math.min(maxScroll, input.scrollLeft + 1);
+        };
+        input._nameMarqueeTimer = setInterval(tick, 35);
+      }
+
       function applyTableData(data) {
         clearTableBody();
         data = sanitizeTable(data);
@@ -1974,6 +2032,9 @@
         });
         document.getElementById('tableBody').appendChild(fragment);
         recalcAndSort();
+        setTimeout(() => {
+          document.querySelectorAll('#tableBody .name-inp').forEach(startNameMarquee);
+        }, 80);
         resetDirty();
       }
 
@@ -2467,6 +2528,7 @@
 
       function handleBlur(e) {
         const target = e.target;
+        if (target.classList.contains('name-inp')) startNameMarquee(target);
         if (target.classList.contains('grade-inp') || target.classList.contains('n-inp')) {
           recalcAndSort();
         }
@@ -2478,6 +2540,12 @@
       tbody.addEventListener('click', handleDeleteRow);
       tbody.addEventListener('input', handleInput);
       tbody.addEventListener('blur', handleBlur, true);
+      tbody.addEventListener('focusin', e => {
+        if (e.target.classList.contains('name-inp')) stopNameMarquee(e.target, true);
+      });
+      tbody.addEventListener('focusout', e => {
+        if (e.target.classList.contains('name-inp')) startNameMarquee(e.target);
+      });
 
       // ===== ПЕРЕСЧЁТ И СОРТИРОВКА =====
       function renumber() {
