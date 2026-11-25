@@ -1393,7 +1393,7 @@
         try {
           return Object.assign(Object.create(null), JSON.parse(readStore('marksTables', 'tables')));
         } catch {
-          return {};
+          return Object.create(null);
         }
       }
 
@@ -2190,7 +2190,9 @@
       }
 
       function clearTableBody() {
-        document.getElementById('tableBody').innerHTML = '';
+        // Останавливаем таймеры прокрутки имён перед удалением строк из DOM.
+        document.querySelectorAll('#tableBody .name-inp').forEach(input => stopNameMarquee(input, true));
+        document.getElementById('tableBody').replaceChildren();
         markDirty();
       }
 
@@ -2203,7 +2205,6 @@
         }
         autoSave();
         closeFab();
-        const tables = getTables();
         const keys = getTableOrder();
         if (!keys.length) {
           showAlertModal('Экспорт', 'Нет таблиц для экспорта');
@@ -2364,7 +2365,10 @@
 
       function downloadFullBackup() {
         closeFab();
-        const data = JSON.stringify(getTables(), null, 2);
+        const allTables = getTables();
+        const orderedTables = Object.create(null);
+        getTableOrder().forEach(name => { if (allTables[name]) orderedTables[name] = allTables[name]; });
+        const data = JSON.stringify(orderedTables, null, 2);
         const blob = new Blob([data], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -2411,7 +2415,6 @@
             const data = JSON.parse(raw);
             if (data && typeof data === 'object') {
               const tables = getTables();
-              const now = Date.now();
               const existingNames = Object.keys(tables);
 
               if (Array.isArray(data.rows)) {
@@ -2703,9 +2706,11 @@
 
       // ===== ПОДПИСКА НА СОБЫТИЯ =====
       const tbody = document.getElementById('tableBody');
-      tbody.addEventListener('change', handlePhotoUpload);
+      tbody.addEventListener('change', function(e) {
+        if (e.target.type === 'file') handlePhotoUpload(e);
+        if (e.target.classList.contains('row-select')) updateBulkRowCount();
+      });
       tbody.addEventListener('click', handleDeleteRow);
-      tbody.addEventListener('change', function(e) { if(e.target.classList.contains('row-select')) updateBulkRowCount(); });
       tbody.addEventListener('input', handleInput);
       tbody.addEventListener('blur', handleBlur, true);
       tbody.addEventListener('focusin', e => {
