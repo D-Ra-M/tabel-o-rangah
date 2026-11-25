@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.svg">
 </head><body>
 
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" integrity="sha384-eeLEhtwdMwD3X9y+8P3Cn7Idl/M+w8H4uZqkgD/2eJVkWIN1yKzEj6XegJ9dL3q0" crossorigin="anonymous"></script>
   <style>
     /* ----- Reset & Base ----- */
@@ -321,19 +322,31 @@
 
     .row-num {
       text-align: center;
-      font-weight: 700;
-      background: #fafafa;
+      font-weight: 800;
+      color: #36516d;
+      background: linear-gradient(145deg, #edf4fb, #dce8f5) !important;
+      border-radius: 9px;
+      box-shadow: inset 0 0 0 1px #cbdbea;
+      font-variant-numeric: tabular-nums;
     }
     .total-count {
       text-align: center;
-      font-weight: 700;
-      background: #f9f9f9 !important;
+      font-weight: 800;
+      color: #246b59;
+      background: linear-gradient(145deg, #e8f7f0, #d5eee3) !important;
+      border-radius: 9px;
+      box-shadow: inset 0 0 0 1px #c4e5d6;
+      font-variant-numeric: tabular-nums;
     }
     .total-score {
       text-align: center;
-      font-weight: 500;
-      background: #f9f9f9 !important;
-      font-size: 14px;
+      font-weight: 800;
+      color: #79551a;
+      background: linear-gradient(145deg, #fff4d9, #f8e4b5) !important;
+      border-radius: 9px;
+      box-shadow: inset 0 0 0 1px #ecd49d;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
     }
     .late {
       color: #b71c1c !important;
@@ -1254,7 +1267,7 @@
 
       const MAX_NAME = 60;
       const MAX_ROWS = 500;
-      const PHOTO_RE = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+$/;
+      const PHOTO_RE = /^data:image\/(png|jpeg|gif|webp|avif);base64,[A-Za-z0-9+\/=]+$/;
       function cleanNum(v) {
         const n = parseFloat(v);
         return isFinite(n) ? String(Math.max(-9999, Math.min(9999, n))) : '';
@@ -2228,7 +2241,7 @@
             <div class="photo-wrap">
               <img class="photo-img" src="" alt="">
               <span>📷</span>
-              <input type="file" accept="image/*" class="photo-inp" aria-label="Загрузить фото">
+              <input type="file" accept="image/*,.heic,.heif" class="photo-inp" aria-label="Загрузить фото">
             </div>
           </td>
           <td style="border:1px solid #ddd;padding:8px;" class="row-num">1</td>
@@ -2249,8 +2262,95 @@
         return tr;
       }
 
-      // Обработка фото
-      function handlePhotoUpload(e) {
+      // Обработка фото: уменьшаем до 1000 px и сохраняем в компактном JPEG.
+      // GIF оставляем исходным, чтобы не терять анимацию.
+      const PHOTO_MAX_INPUT = 30 * 1024 * 1024;
+      const PHOTO_MAX_DATA_URL = 2800000;
+      const PHOTO_MAX_SIDE = 1000;
+      const PHOTO_JPEG_QUALITY = 0.82;
+
+      function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function decodePhotoFile(file) {
+        const isHeic = /\.(heic|heif)$/i.test(file.name || '') ||
+          /image\/(heic|heif)/i.test(file.type || '');
+        let sourceFile = file;
+
+        if (isHeic) {
+          if (typeof window.heic2any !== 'function') {
+            throw new Error('Для обработки HEIC/HEIF требуется подключение к интернету. Попробуйте выбрать фото в JPG или PNG.');
+          }
+          const converted = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+          sourceFile = Array.isArray(converted) ? converted[0] : converted;
+        }
+
+        if (sourceFile.type === 'image/gif') {
+          if (sourceFile.size > PHOTO_MAX_DATA_URL * 0.72) {
+            throw new Error('GIF слишком большой. Выберите GIF до 2 МБ или сохраните фото в JPG.');
+          }
+          return await readFileAsDataUrl(sourceFile);
+        }
+
+        let bitmap;
+        try {
+          if (typeof createImageBitmap === 'function') {
+            bitmap = await createImageBitmap(sourceFile);
+          } else {
+            throw new Error('createImageBitmap недоступен');
+          }
+        } catch (decodeError) {
+          const url = URL.createObjectURL(sourceFile);
+          try {
+            bitmap = await new Promise((resolve, reject) => {
+              const image = new Image();
+              image.onload = () => resolve(image);
+              image.onerror = () => reject(new Error('Формат изображения не поддерживается этим браузером.'));
+              image.src = url;
+            });
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        }
+
+        const width = bitmap.width || bitmap.naturalWidth;
+        const height = bitmap.height || bitmap.naturalHeight;
+        if (!width || !height) {
+          if (bitmap.close) bitmap.close();
+          throw new Error('Не удалось определить размер изображения.');
+        }
+        const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(width, height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          if (bitmap.close) bitmap.close();
+          throw new Error('Не удалось подготовить изображение.');
+        }
+        // JPEG не поддерживает прозрачность — используем белый фон.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        if (bitmap.close) bitmap.close();
+
+        const blob = await new Promise((resolve, reject) => {
+          canvas.toBlob(result => result ? resolve(result) : reject(new Error('Не удалось сжать изображение.')), 'image/jpeg', PHOTO_JPEG_QUALITY);
+        });
+        const dataUrl = await readFileAsDataUrl(blob);
+        if (dataUrl.length > PHOTO_MAX_DATA_URL) {
+          throw new Error('Даже после сжатия фото получилось слишком большим. Выберите другое изображение.');
+        }
+        return dataUrl;
+      }
+
+      async function handlePhotoUpload(e) {
         const inp = e.target;
         if (inp.type !== 'file') return;
         const wrap = inp.closest('.photo-wrap');
@@ -2259,26 +2359,50 @@
         const lbl = wrap.querySelector('span');
         const file = inp.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-          img.src = ev.target.result;
+        if (file.size > PHOTO_MAX_INPUT) {
+          showAlertModal('Фото слишком большое', 'Размер исходного файла превышает 30 МБ. Выберите фотографию меньшего размера.');
+          inp.value = '';
+          return;
+        }
+        if (!/^image\//i.test(file.type) && !/\.(heic|heif)$/i.test(file.name || '')) {
+          showAlertModal('Неподдерживаемый файл', 'Выберите изображение в формате JPG, PNG, WebP, GIF, AVIF или HEIC/HEIF.');
+          inp.value = '';
+          return;
+        }
+        const oldLabel = lbl ? lbl.textContent : '';
+        if (lbl) lbl.textContent = 'Обработка…';
+        inp.disabled = true;
+        try {
+          const dataUrl = await decodePhotoFile(file);
+          img.src = dataUrl;
           img.style.display = 'block';
           if (lbl) lbl.style.display = 'none';
           markDirty();
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+          if (lbl) {
+            lbl.textContent = oldLabel || '📷';
+            lbl.style.display = 'block';
+          }
+          showAlertModal('Не удалось добавить фото', error && error.message ? error.message : 'Попробуйте другое изображение.');
+        } finally {
+          inp.disabled = false;
+          inp.value = '';
+        }
       }
 
-      // Удаление строки
+      // Удаление строки — только после явного подтверждения.
       function handleDeleteRow(e) {
         const btn = e.target.closest('.del-row-btn');
         if (!btn) return;
         const tr = btn.closest('tr');
-        if (tr) {
+        if (!tr) return;
+        const rowName = (tr.querySelector('.name-inp')?.value || '').trim();
+        const label = rowName ? ' «' + rowName + '»' : '';
+        showConfirmModal('Удалить строку?', 'Вы действительно хотите удалить строку' + label + '? Это действие нельзя отменить.', function() {
           tr.remove();
           recalcAndSort();
           markDirty();
-        }
+        }, null, true);
       }
 
       // Проверка, пустая ли строка (нет имени и все оценки равны 0)
