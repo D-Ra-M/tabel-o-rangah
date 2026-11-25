@@ -1334,21 +1334,18 @@
         return task;
       }
 
-      // Ежедневный снимок предыдущего состояния, храним последние 7 дней.
+      // Храним только одну предыдущую дневную копию, чтобы не расходовать место фотографиями.
       function createDailyBackup(previousValue) {
         if (!persistentDb || !previousValue) return Promise.resolve();
         return new Promise((resolve, reject) => {
           const tx = persistentDb.transaction('backups', 'readwrite');
           const store = tx.objectStore('backups');
+          const request = store.get('latest');
           const today = new Date().toISOString().slice(0, 10);
-          const request = store.get(today);
           request.onsuccess = () => {
-            if (!request.result) store.put({ id: today, value: previousValue, createdAt: Date.now() });
-            const keysRequest = store.getAllKeys();
-            keysRequest.onsuccess = () => {
-              const keys = keysRequest.result.sort();
-              keys.slice(0, Math.max(0, keys.length - 7)).forEach(key => store.delete(key));
-            };
+            if (!request.result || request.result.day !== today) {
+              store.put({ id: 'latest', day: today, value: previousValue, createdAt: Date.now() });
+            }
           };
           tx.oncomplete = resolve;
           tx.onerror = () => reject(tx.error || new Error('Не удалось создать резервную копию'));
