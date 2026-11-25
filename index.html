@@ -1028,7 +1028,6 @@
     <button class="fab-done" id="fabDoneBtn" onclick="toggleMoveMode()">Готово</button>
     <div class="fab-menu" id="fabMenu">
       <button class="fab-mini create" onclick="fabCreate()">Создать</button>
-      <button class="fab-mini move" id="fabMove" onclick="toggleMoveMode()">Переместить</button>
       <button class="fab-mini bulk-delete" onclick="startBulkTableDelete()">Удалить</button>
       <button class="fab-mini import" onclick="fabImport()">Импорт</button>
       <button class="fab-mini export" id="fabExport" onclick="fabExportAll()">Экспорт</button>
@@ -1040,8 +1039,8 @@
   <div class="fab-editor" id="fabEditor">
     <div class="fab-menu" id="fabEditorMenu">
       <button class="fab-mini add" onclick="addRow()">+ Добавить</button>
-      <button class="fab-mini save" onclick="saveTable()">Сохранить</button>
       <button class="fab-mini bulk-delete" onclick="startBulkRowDelete()">Удалить</button>
+      <button class="fab-mini save" onclick="saveTable()">Сохранить</button>
       <button class="fab-mini clear" onclick="showClearModal()">Очистить</button>
     </div>
     <button class="fab-main" id="fabEditorBtn" onclick="toggleEditorFab()" aria-label="Действия с таблицей">⚙</button>
@@ -1624,6 +1623,7 @@
             <div class="table-card-actions">
               <button class="dots-btn" data-action="menu" aria-label="Действия">⋮</button>
               <div class="dropdown-menu">
+                <button data-action="move">Переместить</button>
                 <button data-action="rename">Переименовать</button>
                 <button class="delete" data-action="delete">Удалить</button>
               </div>
@@ -1751,6 +1751,7 @@
         }
         if (action === 'open') openTable(name);
         else if (action === 'menu') toggleDropdown(e, el);
+        else if (action === 'move') { document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open')); toggleMoveMode(); }
         else if (action === 'rename') showRenameModal(name);
         else if (action === 'delete') deleteTable(name);
       });
