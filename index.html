@@ -1348,9 +1348,12 @@
       }
 
       function readStore(key, memKey) {
+        // После успешной инициализации IndexedDB её данные — источник истины.
+        // localStorage может содержать старую/неполную копию после quota error.
+        if (persistentDb && mem[memKey] !== undefined) return mem[memKey];
         try {
           const v = localStorage.getItem(key);
-          if (v) return v;
+          if (v !== null && v !== '') return v;
         } catch (e) {}
         return mem[memKey] || (memKey === 'order' ? '[]' : '{}');
       }
@@ -1399,12 +1402,15 @@
       }
 
       function getTableOrder() {
+        const tables = getTables();
+        const allNames = Object.keys(tables);
         try {
-          const order = JSON.parse(readStore('tableOrder', 'order'));
-          const tables = getTables();
-          return order.filter(k => tables[k]);
+          const savedOrder = JSON.parse(readStore('tableOrder', 'order'));
+          const order = Array.isArray(savedOrder) ? savedOrder.filter(k => Object.prototype.hasOwnProperty.call(tables, k)) : [];
+          allNames.forEach(k => { if (!order.includes(k)) order.push(k); });
+          return order;
         } catch {
-          return Object.keys(getTables());
+          return allNames;
         }
       }
 
@@ -1547,8 +1553,7 @@
       let sortableInstance = null;
 
       function toggleMoveMode() {
-        const moveBtn = document.getElementById('fabMove');
-        if (moveBtn.classList.contains('disabled')) {
+        if (!getTableOrder().length) {
           showSnackbar('Нет таблиц для перемещения');
           return;
         }
@@ -1587,15 +1592,8 @@
         const keys = getTableOrder();
         const hasTables = keys.length > 0;
 
-        const moveBtn = document.getElementById('fabMove');
         const exportBtn = document.getElementById('fabExport');
-        if (hasTables) {
-          moveBtn.classList.remove('disabled');
-          exportBtn.classList.remove('disabled');
-        } else {
-          moveBtn.classList.add('disabled');
-          exportBtn.classList.add('disabled');
-        }
+        if (exportBtn) exportBtn.classList.toggle('disabled', !hasTables);
 
         if (!hasTables) {
           container.innerHTML =
