@@ -1265,7 +1265,7 @@
         // Сохраняем изменения автоматически, даже если пользователь
         // просто закроет приложение, не нажав отдельную кнопку.
         clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(() => autoSave(), 400);
+        autoSaveTimer = setTimeout(() => autoSave(false), 400);
       }
 
       function resetDirty() {
@@ -1273,14 +1273,14 @@
       }
 
       // ===== AUTO-SAVE =====
-      function autoSave() {
+      function autoSave(showFeedback = true) {
         clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
         const name = document.getElementById('groupNameDisplay').textContent;
         if (!isDirty) return;
 
         if (name === 'Без названия') {
-          showSnackbar('Таблица не сохранена (нет названия)');
+          if (showFeedback) showSnackbar('Таблица не сохранена (нет названия)');
           resetDirty();
           return;
         }
@@ -1297,7 +1297,7 @@
         };
         setTables(tables);
         resetDirty();
-        showSnackbar('Изменения сохранены');
+        if (showFeedback) showSnackbar('Изменения сохранены');
       }
 
       // ===== NAVIGATION =====
@@ -1330,9 +1330,9 @@
 
       // Принудительно сохраняем текущую таблицу при сворачивании
       // приложения, закрытии вкладки или переходе страницы в фон.
-      window.addEventListener('pagehide', autoSave);
+      window.addEventListener('pagehide', () => autoSave(false));
       document.addEventListener('visibilitychange', function() {
-        if (document.visibilityState === 'hidden') autoSave();
+        if (document.visibilityState === 'hidden') autoSave(false);
       });
 
       // ===== FAB главного экрана =====
