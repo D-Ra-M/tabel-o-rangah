@@ -1,0 +1,2411 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>  <title>Табель о рангах</title>
+  <meta name="description" content="Табель о рангах — удобные таблицы оценок и рейтингов.">
+  <meta name="theme-color" content="#f5f5f5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Табель о рангах">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head><body>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" integrity="sha384-eeLEhtwdMwD3X9y+8P3Cn7Idl/M+w8H4uZqkgD/2eJVkWIN1yKzEj6XegJ9dL3q0" crossorigin="anonymous"></script>
+  <style>
+    /* ----- Reset & Base ----- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      padding: 16px 16px 80px;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Установка PWA */
+    #installAppBtn[hidden] { display: none !important; }
+    #installAppBtn:active { background: #eee !important; }
+
+    /* ----- Home ----- */
+    .home-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #f5f5f5;
+      text-align: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: #111;
+      border-bottom: 2px solid #222;
+      padding: 8px 0 4px;
+      margin: 0 0 24px 0;
+    }
+    .tables-list {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .table-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      cursor: default;
+      position: relative;
+      user-select: none;
+    }
+    .table-card:hover {
+      border-color: #999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .table-card-info {
+      flex: 1;
+      min-width: 0;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .table-card-name {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .table-card-meta {
+      font-size: 12px;
+      color: #888;
+      line-height: 1.4;
+      pointer-events: none;
+    }
+    .table-card-actions {
+      position: relative;
+      flex-shrink: 0;
+      margin-left: 12px;
+      cursor: default;
+    }
+    .dots-btn {
+      background: #333;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .dots-btn:hover {
+      background: #555;
+    }
+    .dots-btn:active {
+      transform: scale(0.92);
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      margin-top: 4px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      z-index: 50;
+      min-width: 150px;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+    }
+    .dropdown-menu.open {
+      display: flex;
+    }
+    .dropdown-menu button {
+      background: #fff;
+      border: none;
+      border-bottom: 1px solid #f0f0f0;
+      color: #222;
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.1s;
+      width: 100%;
+    }
+    .dropdown-menu button:last-child {
+      border-bottom: none;
+    }
+    .dropdown-menu button:hover {
+      background: #f5f5f5;
+    }
+    .dropdown-menu button.delete {
+      color: #d32f2f;
+    }
+    .dropdown-menu button.delete:hover {
+      background: #fce4e4;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #aaa;
+      font-size: 14px;
+      padding: 40px 20px;
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      line-height: 1.8;
+    }
+
+    /* Режим перетаскивания */
+    .sortable-enabled .table-card-info {
+      cursor: grab;
+    }
+    .sortable-enabled .table-card-info:active {
+      cursor: grabbing;
+    }
+
+    /* ----- Editor ----- */
+    .editor-view {
+      display: none;
+      height: 100vh;
+      flex-direction: column;
+      padding: 0 16px 16px;
+      overflow: hidden;
+    }
+    .editor-topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0 8px;
+      flex-shrink: 0;
+    }
+    .btn-back {
+      background: #333;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-back:hover {
+      background: #555;
+    }
+    #groupNameDisplay {
+      font-size: 22px;
+      font-weight: 700;
+      color: #111;
+      flex: 1;
+      text-align: center;
+      border-bottom: 2px solid #222;
+      padding-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .table-wrap {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      min-height: 0;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 760px;
+      font-size: 13px;
+      background: #fff;
+    }
+    thead tr {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    th {
+      border: 1px solid #ddd;
+      padding: 8px 6px;
+      font-weight: 500;
+      text-align: center;
+      background: #f7f7f7;
+    }
+    th:nth-child(3),
+    td:nth-child(3) {
+      min-width: 200px;
+      width: auto;
+    }
+
+    td {
+      border: 1px solid #ddd;
+      padding: 0;
+      background: #fff;
+    }
+    td input[type="text"],
+    td input[type="number"] {
+      width: 100%;
+      height: 42px;
+      border: none;
+      text-align: center;
+      font-size: 13px;
+      outline: none;
+      background: transparent;
+      color: #222;
+      padding: 0 4px;
+      font-family: inherit;
+    }
+    td input::placeholder {
+      color: #bbb;
+    }
+    td input:focus {
+      background: #fafafa;
+    }
+
+    .photo-wrap {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 4px;
+      background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-wrap img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      display: none;
+    }
+    .photo-wrap input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 80px;
+      height: 80px;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 3;
+    }
+    .photo-wrap span {
+      color: #bbb;
+      font-size: 12px;
+      display: block;
+      pointer-events: none;
+    }
+
+    .row-num {
+      text-align: center;
+      font-weight: 700;
+      background: #fafafa;
+    }
+    .total-count {
+      text-align: center;
+      font-weight: 700;
+      background: #f9f9f9 !important;
+    }
+    .total-score {
+      text-align: center;
+      font-weight: 500;
+      background: #f9f9f9 !important;
+      font-size: 14px;
+    }
+    .late {
+      color: #b71c1c !important;
+    }
+
+    .diag-cell {
+      position: relative;
+      width: 80px;
+      height: 50px;
+      background: #f0f0f0;
+    }
+    .diag-cell svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      stroke: #bbb;
+    }
+    .diag-cell span {
+      position: absolute;
+      font-weight: 400;
+      color: #555;
+      z-index: 2;
+      font-size: 10px;
+    }
+    .diag-top {
+      top: 4px;
+      right: 6px;
+    }
+    .diag-bottom {
+      bottom: 4px;
+      left: 6px;
+    }
+
+    td button {
+      background: none;
+      border: none;
+      color: #d32f2f;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      transition: opacity 0.15s;
+    }
+    td button:hover {
+      opacity: 0.7;
+    }
+
+    /* ----- FAB главного экрана ----- */
+    .fab-container {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 60;
+    }
+    .fab-main {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #555, #222);
+      color: #fff;
+      font-size: 22px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease, background 0.15s;
+      font-weight: 300;
+    }
+    .fab-main:hover {
+      background: #444;
+    }
+    .fab-main.rotated {
+      transform: rotate(90deg);
+    }
+
+    .fab-menu {
+      position: absolute;
+      right: 0;
+      bottom: 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(8px) scale(0.95);
+      transform-origin: bottom right;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+    }
+    .fab-menu.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .fab-mini {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 120px;
+      padding: 8px 12px;
+      border-radius: 24px;
+      border: none;
+      font-size: 13px;
+      font-weight: 400;
+      color: #fff;
+      background: #444;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .fab-mini:hover {
+      opacity: 0.85;
+    }
+    .fab-mini:active {
+      transform: scale(0.96);
+    }
+    .fab-mini.create {
+      background: #2e7d32;
+    }
+    .fab-mini.move {
+      background: #6a1b9a;
+    }
+    .fab-mini.import {
+      background: #1565c0;
+    }
+    .fab-mini.export {
+      background: #e65100;
+    }
+    .fab-mini.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+      filter: grayscale(0.6);
+    }
+
+    /* ----- FAB редактора (шестерёнка) ----- */
+    .fab-editor {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 60;
+      display: none;
+    }
+    .fab-editor .fab-main {
+      background: linear-gradient(135deg, #555, #222);
+    }
+    .fab-editor .fab-main.rotated {
+      transform: rotate(60deg);
+    }
+    .fab-editor .fab-menu {
+      bottom: 64px;
+    }
+    .fab-editor .fab-mini {
+      background: #444;
+    }
+    .fab-editor .fab-mini.add {
+      background: #2e7d32;
+    }
+    .fab-editor .fab-mini.save {
+      background: #1565c0;
+    }
+    .fab-editor .fab-mini.clear {
+      background: #c62828;
+    }
+
+    /* ----- Кнопка "Готово" (над карандашом) ----- */
+    .fab-done {
+      display: none;
+      position: absolute;
+      right: 0;
+      bottom: 70px;
+      z-index: 65;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(135deg, #555, #222);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .fab-done:hover {
+      opacity: 0.85;
+    }
+    .fab-done:active {
+      transform: scale(0.96);
+    }
+    .fab-done.visible {
+      display: block;
+    }
+
+    /* ----- Snackbar ----- */
+    #snackbar {
+      visibility: hidden;
+      min-width: 200px;
+      background: #222;
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 12px 20px;
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 120;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    #snackbar.show {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* ----- Modals (общие) ----- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.35);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay:not(.modal-overlay-alert) {
+      z-index: 100;
+    }
+    .modal-overlay-alert {
+      z-index: 200;
+    }
+
+    .modal {
+      background: #fff;
+      padding: 28px 32px;
+      border-radius: 12px;
+      max-width: 380px;
+      width: 90%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    .modal h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 300;
+      color: #111;
+      letter-spacing: 0.3px;
+    }
+    .modal .modal-message {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 16px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+    .modal input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      background: #fff;
+      color: #222;
+      font-family: inherit;
+    }
+    .modal input:focus {
+      border-color: #888;
+      outline: none;
+    }
+    .modal .error-text {
+      color: #d32f2f;
+      font-size: 13px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .modal-btns {
+      display: flex;
+      gap: 10px;
+    }
+    .modal-btns button {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 400;
+      cursor: pointer;
+      background: #fff;
+      color: #222;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .modal-btns .modal-confirm {
+      background: #222;
+      color: #fff;
+      border-color: #222;
+    }
+    .modal-btns .modal-confirm:hover {
+      background: #444;
+      border-color: #444;
+    }
+    .modal-btns .modal-confirm:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+      filter: grayscale(0.5);
+    }
+    .modal-btns .modal-cancel:hover {
+      background: #f0f0f0;
+      border-color: #999;
+    }
+    .modal-btns .modal-confirm.danger {
+      background: #c62828;
+      border-color: #c62828;
+    }
+    .modal-btns .modal-confirm.danger:hover {
+      background: #b71c1c;
+      border-color: #b71c1c;
+    }
+
+    .paste-area {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      background: #fff;
+      color: #222;
+      resize: vertical;
+    }
+    .paste-area:focus {
+      border-color: #888;
+      outline: none;
+    }
+    .file-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .file-drop {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 96px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 2px dashed #bbb;
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .file-drop:hover, .file-drop:focus, .file-drop.dragover {
+      border-color: #555;
+      background: #f0f0f0;
+      outline: none;
+    }
+    .file-drop-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: #222;
+      word-break: break-word;
+    }
+    .file-drop-hint {
+      font-size: 12px;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    .export-table-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .export-btns {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .export-table-item span {
+      font-weight: 400;
+      color: #222;
+    }
+    .export-table-item button {
+      background: none;
+      border: 1px solid #ccc;
+      color: #222;
+      padding: 4px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s;
+    }
+    .export-table-item button:hover {
+      background: #f0f0f0;
+    }
+
+    .sortable-ghost {
+      opacity: 0.4;
+      border: 1px dashed #888;
+    }
+
+    /* ----- Responsive ----- */
+    @media (max-width: 480px) {
+      body { padding: 8px 8px 70px; }
+      .home-header { font-size: 22px; padding: 6px 0 4px; margin-bottom: 16px; }
+      .fab-main { width: 48px; height: 48px; font-size: 20px; }
+      .fab-mini { width: 100px; padding: 6px 10px; font-size: 12px; }
+      #snackbar { bottom: 70px; padding: 10px 16px; font-size: 13px; }
+      .dots-btn { width: 32px; height: 32px; font-size: 16px; }
+      .fab-done { padding: 8px 16px; font-size: 13px; bottom: 64px; right: 4px; }
+      .editor-topbar { padding: 8px 0; }
+      #groupNameDisplay { font-size: 18px; }
+      .btn-back { padding: 6px 14px; font-size: 13px; }
+    }
+
+    /* ===== Адаптивность: телефон и компьютер ===== */
+    html { -webkit-text-size-adjust: 100%; }
+    button, label, input, textarea, .table-card-info { touch-action: manipulation; }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0 0 auto;
+      height: env(safe-area-inset-top, 0px);
+      z-index: 10;
+      background: #f5f5f5;
+    }
+    .home-header { top: env(safe-area-inset-top, 0px); }
+    .editor-view { height: 100vh; height: 100dvh; width: 100%; }
+    .modal { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; }
+    .modal input, .paste-area { font-size: 16px; }
+    .empty-state { grid-column: 1 / -1; }
+    :focus-visible { outline: 2px solid #1565c0; outline-offset: 2px; }
+
+    /* Компьютер и планшет: широкий список и широкая таблица */
+    @media (min-width: 720px) {
+      .home-header { max-width: 1100px; margin-left: auto; margin-right: auto; }
+      .tables-list {
+        max-width: 1100px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 12px;
+      }
+      .table-card { margin-bottom: 0; }
+      .editor-view { max-width: 1280px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+      table { min-width: 0; }
+      td input[type="text"], td input[type="number"] { font-size: 14px; }
+    }
+
+    /* Сенсорные экраны: крупные кнопки */
+    @media (pointer: coarse) {
+      .dots-btn { width: 44px; height: 44px; }
+      .dropdown-menu button { padding: 14px 16px; font-size: 15px; }
+      .modal-btns button { min-height: 46px; }
+      .fab-mini { padding: 12px 14px; font-size: 14px; width: 130px; }
+      .btn-back { min-height: 44px; }
+      .export-table-item button { min-height: 40px; padding: 6px 12px; }
+      td button { min-width: 44px; min-height: 44px; }
+    }
+
+    /* Телефон: каждая строка превращается в карточку, все оценки видны без прокрутки */
+    @media (max-width: 719px) {
+      body { padding: 8px 12px 90px; }
+      .tables-list { max-width: none; }
+      .editor-view { padding: 0 8px 8px; }
+      .editor-topbar { padding: 8px 0; gap: 10px; }
+      .table-wrap {
+        border: none;
+        background: transparent;
+        overflow-x: hidden;
+        padding-bottom: 96px;
+      }
+      table { display: block; min-width: 0; background: transparent; }
+      table thead { display: none; }
+      table tbody { display: flex; flex-direction: column; gap: 10px; }
+      #tableBody tr {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 10px;
+      }
+      #tableBody td {
+        border: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+        min-width: 0 !important;
+        width: auto !important;
+        text-align: left;
+      }
+      #tableBody td:nth-child(1) { grid-column: 1 / 3; grid-row: 1 / 3; }
+      #tableBody td:nth-child(2) {
+        grid-column: 3; grid-row: 2; align-self: center;
+        font-size: 13px; text-align: left;
+      }
+      #tableBody td:nth-child(2)::before { content: "№ "; font-weight: 400; color: #888; }
+      #tableBody td:nth-child(3) { grid-column: 3 / 7; grid-row: 1; }
+      #tableBody td:nth-child(13) { grid-column: 7; grid-row: 1; display: flex; align-items: center; justify-content: center; }
+      #tableBody td:nth-child(4) { grid-column: 4 / 6; grid-row: 2; font-size: 13px; align-self: center; }
+      #tableBody td:nth-child(12) { grid-column: 6 / 8; grid-row: 2; font-size: 13px; align-self: center; text-align: right; }
+      #tableBody td:nth-child(4)::before { content: "Кол-во: "; font-weight: 400; color: #888; }
+      #tableBody td:nth-child(12)::before { content: "Балл: "; font-weight: 400; color: #888; }
+      #tableBody td:nth-child(n+5):nth-child(-n+11) {
+        grid-row: 3;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      #tableBody td:nth-child(n+5):nth-child(-n+11)::before {
+        text-align: center; font-size: 12px; color: #888;
+      }
+      #tableBody td:nth-child(5) { grid-column: 1; } #tableBody td:nth-child(5)::before { content: "5"; }
+      #tableBody td:nth-child(6) { grid-column: 2; } #tableBody td:nth-child(6)::before { content: "4"; }
+      #tableBody td:nth-child(7) { grid-column: 3; } #tableBody td:nth-child(7)::before { content: "3"; }
+      #tableBody td:nth-child(8) { grid-column: 4; } #tableBody td:nth-child(8)::before { content: "2"; }
+      #tableBody td:nth-child(9) { grid-column: 5; } #tableBody td:nth-child(9)::before { content: "1"; }
+      #tableBody td:nth-child(10) { grid-column: 6; } #tableBody td:nth-child(10)::before { content: "О"; }
+      #tableBody td:nth-child(11) { grid-column: 7; } #tableBody td:nth-child(11)::before { content: "Н"; }
+      #tableBody td input[type="text"] {
+        height: 44px; text-align: left; font-size: 16px; padding: 0 10px;
+        border: 1px solid #ddd; border-radius: 6px; background: #fff;
+      }
+      #tableBody td input[type="number"] {
+        height: 44px; font-size: 16px; padding: 0 2px;
+        border: 1px solid #ddd; border-radius: 6px; background: #fff;
+      }
+      .fab-mini { width: 124px; }
+    }
+  </style>
+<!-- SNACKBAR -->
+  <div id="snackbar"></div>
+
+  <!-- HOME VIEW -->
+  <div id="homeView">
+    <div class="home-header">Таблицы <button id="installAppBtn" type="button" hidden aria-label="Установить приложение" style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:1px solid #bbb;border-radius:7px;background:#fff;color:#222;padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer">Установить</button></div>
+    <div class="tables-list" id="tablesList"></div>
+  </div>
+
+  <!-- EDITOR VIEW -->
+  <div id="editorView" class="editor-view">
+    <div class="editor-topbar">
+      <button class="btn-back" onclick="goHome()">Назад</button>
+      <div id="groupNameDisplay">Без названия</div>
+    </div>
+    <div class="table-wrap">
+      <table id="marksTable">
+        <thead>
+          <tr>
+            <th>Фото</th>
+            <th>№</th>
+            <th>Имя</th>
+            <th class="diag-cell">
+              <svg preserveAspectRatio="none"><line x1="0" y1="0" x2="100%" y2="100%" stroke="#bbb" stroke-width="1"/></svg>
+              <span class="diag-top">Оценки</span>
+              <span class="diag-bottom">Кол-во</span>
+            </th>
+            <th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>О</th><th>Н</th>
+            <th>Балл</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FAB главного экрана -->
+  <div class="fab-container" id="fabContainer">
+    <button class="fab-done" id="fabDoneBtn" onclick="toggleMoveMode()">Готово</button>
+    <div class="fab-menu" id="fabMenu">
+      <button class="fab-mini create" onclick="fabCreate()">Создать</button>
+      <button class="fab-mini move" id="fabMove" onclick="toggleMoveMode()">Переместить</button>
+      <button class="fab-mini import" onclick="fabImport()">Импорт</button>
+      <button class="fab-mini export" id="fabExport" onclick="fabExportAll()">Экспорт</button>
+    </div>
+    <button class="fab-main" id="fabMain" onclick="toggleFab()" aria-label="Главное меню">✎</button>
+  </div>
+
+  <!-- FAB редактора (шестерёнка) -->
+  <div class="fab-editor" id="fabEditor">
+    <div class="fab-menu" id="fabEditorMenu">
+      <button class="fab-mini add" onclick="addRow()">+ Добавить</button>
+      <button class="fab-mini save" onclick="saveTable()">Сохранить</button>
+      <button class="fab-mini clear" onclick="showClearModal()">Очистить</button>
+    </div>
+    <button class="fab-main" id="fabEditorBtn" onclick="toggleEditorFab()" aria-label="Действия с таблицей">⚙</button>
+  </div>
+
+  <!-- УНИВЕРСАЛЬНЫЕ МОДАЛКИ -->
+  <div class="modal-overlay modal-overlay-alert" id="alertModal">
+    <div class="modal">
+      <h3 id="alertTitle">Уведомление</h3>
+      <div class="modal-message" id="alertMessage"></div>
+      <div class="modal-btns">
+        <button class="modal-confirm" id="alertOkBtn">ОК</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay modal-overlay-alert" id="confirmModal">
+    <div class="modal">
+      <h3 id="confirmTitle">Подтверждение</h3>
+      <div class="modal-message" id="confirmMessage"></div>
+      <div class="modal-btns">
+        <button class="modal-confirm" id="confirmYesBtn">Подтвердить</button>
+        <button class="modal-cancel" id="confirmNoBtn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay modal-overlay-alert" id="promptModal">
+    <div class="modal">
+      <h3 id="promptTitle">Ввод</h3>
+      <div class="modal-message" id="promptMessage"></div>
+      <input type="text" id="promptInput" placeholder="Введите значение" aria-label="Ввод">
+      <div class="modal-btns">
+        <button class="modal-confirm" id="promptOkBtn">ОК</button>
+        <button class="modal-cancel" id="promptCancelBtn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка создания -->
+  <div class="modal-overlay" id="saveModal">
+    <div class="modal">
+      <h3 id="saveModalTitle">Название новой таблицы</h3>
+      <input type="text" id="saveName" maxlength="60" placeholder="Введите уникальное название" aria-label="Название таблицы">
+      <div class="error-text" id="saveNameError">Таблица с таким именем уже существует</div>
+      <div class="modal-btns">
+        <button class="modal-confirm" id="saveModalConfirm" onclick="saveTableWithName()" disabled>Создать</button>
+        <button class="modal-cancel" onclick="closeSaveModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка переименования -->
+  <div class="modal-overlay" id="renameModal">
+    <div class="modal">
+      <h3>Переименовать таблицу</h3>
+      <input type="text" id="renameInput" maxlength="60" placeholder="Новое название" aria-label="Новое название">
+      <div class="error-text" id="renameError">Введите название</div>
+      <div class="error-text" id="renameExistsError">Таблица с таким именем уже существует</div>
+      <div class="modal-btns">
+        <button class="modal-confirm" id="renameConfirmBtn" onclick="confirmRename()" disabled>Переименовать</button>
+        <button class="modal-cancel" onclick="closeRenameModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка очистки -->
+  <div class="modal-overlay" id="clearModal">
+    <div class="modal">
+      <h3>Очистка таблицы</h3>
+      <div class="modal-message">Вы уверены, что хотите очистить все данные в таблице? Это действие нельзя отменить.</div>
+      <div class="modal-btns">
+        <button class="modal-confirm danger" onclick="confirmClear()">Очистить</button>
+        <button class="modal-cancel" onclick="closeClearModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка ввода имени при импорте -->
+  <div class="modal-overlay" id="importNameModal">
+    <div class="modal">
+      <h3>Импорт таблицы</h3>
+      <div class="modal-message">Введите название для импортируемой таблицы</div>
+      <input type="text" id="importNameInput" maxlength="60" placeholder="Название" aria-label="Название таблицы">
+      <div class="error-text" id="importNameError">Введите название</div>
+      <div class="error-text" id="importNameExistsError">Таблица с таким именем уже существует</div>
+      <div class="modal-btns">
+        <button class="modal-confirm" id="importNameConfirmBtn" onclick="confirmImportName()" disabled>Импортировать</button>
+        <button class="modal-cancel" onclick="closeImportNameModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка выбора таблицы для экспорта -->
+  <div class="modal-overlay" id="exportSelectModal">
+    <div class="modal">
+      <h3>Выберите таблицу</h3>
+      <div id="exportTableList" style="max-height:200px;overflow-y:auto;margin-bottom:12px;"></div>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeExportSelectModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка ручного копирования -->
+  <div class="modal-overlay" id="manualCopyModal">
+    <div class="modal">
+      <h3>Скопируйте текст</h3>
+      <div class="modal-message">Автоматическое копирование недоступно. Выделите весь текст ниже и скопируйте его вручную.</div>
+      <textarea id="manualCopyText" class="paste-area" rows="6" readonly aria-label="Текст таблицы"></textarea>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeManualCopy()">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка выбора файла для импорта -->
+  <div class="modal-overlay" id="importFileModal">
+    <div class="modal">
+      <h3>Импорт из файла</h3>
+      <label class="file-drop" id="fileDrop" for="importFileInput" tabindex="0">
+        <span class="file-drop-title" id="importFileLabel">Выбрать файл</span>
+        <span class="file-drop-hint">JSON-файл, ранее сохранённый кнопкой «Экспорт». Можно перетащить сюда.</span>
+      </label>
+      <input type="file" id="importFileInput" class="file-hidden" aria-label="Файл JSON">
+      <div class="modal-message">Если файл выбрать не удаётся, вставьте сюда текст таблицы, скопированный кнопкой «Копировать» в экспорте.</div>
+      <textarea id="importPasteText" class="paste-area" rows="4" placeholder='{"rows": [...]}' aria-label="Текст таблицы"></textarea>
+      <div class="modal-btns">
+        <button class="modal-confirm" onclick="handleImportFile()">Импортировать</button>
+        <button class="modal-cancel" onclick="closeImportFileModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ===== УНИВЕРСАЛЬНЫЕ МОДАЛКИ =====
+      function showAlertModal(title, message, callback) {
+        document.getElementById('alertTitle').textContent = title || 'Уведомление';
+        document.getElementById('alertMessage').textContent = message || '';
+        const modal = document.getElementById('alertModal');
+        modal.style.display = 'flex';
+        const okBtn = document.getElementById('alertOkBtn');
+        okBtn.onclick = function() {
+          modal.style.display = 'none';
+          if (callback) callback();
+        };
+        modal.onclick = function(e) {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+            if (callback) callback();
+          }
+        };
+      }
+
+      function showConfirmModal(title, message, onConfirm, onCancel, isDanger) {
+        document.getElementById('confirmTitle').textContent = title || 'Подтверждение';
+        document.getElementById('confirmMessage').textContent = message || '';
+        const modal = document.getElementById('confirmModal');
+        const confirmBtn = document.getElementById('confirmYesBtn');
+        if (isDanger) {
+          confirmBtn.classList.add('danger');
+        } else {
+          confirmBtn.classList.remove('danger');
+        }
+        modal.style.display = 'flex';
+        confirmBtn.onclick = function() {
+          modal.style.display = 'none';
+          if (onConfirm) onConfirm();
+        };
+        document.getElementById('confirmNoBtn').onclick = function() {
+          modal.style.display = 'none';
+          if (onCancel) onCancel();
+        };
+        modal.onclick = function(e) {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+            if (onCancel) onCancel();
+          }
+        };
+      }
+
+      function showPromptModal(title, message, defaultValue, onConfirm, onCancel) {
+        document.getElementById('promptTitle').textContent = title || 'Ввод';
+        document.getElementById('promptMessage').textContent = message || '';
+        const input = document.getElementById('promptInput');
+        input.value = defaultValue || '';
+        const modal = document.getElementById('promptModal');
+        modal.style.display = 'flex';
+        input.focus();
+        const okBtn = document.getElementById('promptOkBtn');
+        const cancelBtn = document.getElementById('promptCancelBtn');
+        okBtn.onclick = function() {
+          const val = input.value.trim();
+          modal.style.display = 'none';
+          if (onConfirm) onConfirm(val);
+        };
+        cancelBtn.onclick = function() {
+          modal.style.display = 'none';
+          if (onCancel) onCancel();
+        };
+        modal.onclick = function(e) {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+            if (onCancel) onCancel();
+          }
+        };
+        input.onkeydown = function(e) {
+          if (e.key === 'Enter') {
+            okBtn.click();
+          }
+        };
+      }
+
+      // ===== UTILITIES =====
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+      }
+
+      function formatDate(ts) {
+        if (!ts) return '—';
+        return new Date(ts).toLocaleString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      function generateUniqueName(base, existingNames) {
+        let newName = base;
+        let counter = 1;
+        while (existingNames.includes(newName)) {
+          newName = base + ' (' + counter + ')';
+          counter++;
+        }
+        return newName;
+      }
+
+      function getFileNameWithoutExtension(fileName) {
+        return fileName.replace(/\.[^/.]+$/, '');
+      }
+
+      // ===== STORAGE =====
+      const mem = {};
+      function readStore(key, memKey) {
+        try {
+          const v = localStorage.getItem(key);
+          if (v) return v;
+        } catch (e) {}
+        return mem[memKey] || (memKey === 'order' ? '[]' : '{}');
+      }
+      function getTables() {
+        try {
+          return Object.assign(Object.create(null), JSON.parse(readStore('marksTables', 'tables')));
+        } catch {
+          return {};
+        }
+      }
+
+      const MAX_NAME = 60;
+      const MAX_ROWS = 500;
+      const PHOTO_RE = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+$/;
+      function cleanNum(v) {
+        const n = parseFloat(v);
+        return isFinite(n) ? String(Math.max(-9999, Math.min(9999, n))) : '';
+      }
+      function sanitizeTable(t) {
+        const rows = (t && Array.isArray(t.rows)) ? t.rows.slice(0, MAX_ROWS) : [];
+        return {
+          rows: rows.map(r => {
+            r = (r && typeof r === 'object') ? r : {};
+            const grades = {};
+            ['5', '4', '3', '2', '1', '0'].forEach(g => {
+              grades[g] = cleanNum(r.grades && r.grades[g]);
+            });
+            return {
+              name: String(r.name == null ? '' : r.name).slice(0, 200),
+              photo: (typeof r.photo === 'string' && r.photo.length < 3000000 && PHOTO_RE.test(r.photo)) ? r.photo : '',
+              grades: grades,
+              n: cleanNum(r.n)
+            };
+          })
+        };
+      }
+      function toTime(v, fallback) {
+        return (typeof v === 'number' && isFinite(v)) ? v : fallback;
+      }
+
+      function setTables(tables) {
+        try { localStorage.setItem('marksTables', JSON.stringify(tables)); } catch (e) { mem.tables = JSON.stringify(tables); }
+      }
+
+      function getTableOrder() {
+        try {
+          const order = JSON.parse(readStore('tableOrder', 'order'));
+          const tables = getTables();
+          return order.filter(k => tables[k]);
+        } catch {
+          return Object.keys(getTables());
+        }
+      }
+
+      function setTableOrder(order) {
+        try { localStorage.setItem('tableOrder', JSON.stringify(order)); } catch (e) { mem.order = JSON.stringify(order); }
+      }
+
+      // ===== SNACKBAR =====
+      let snackbarTimeout;
+
+      function showSnackbar(message) {
+        const el = document.getElementById('snackbar');
+        el.textContent = message;
+        el.classList.add('show');
+        clearTimeout(snackbarTimeout);
+        snackbarTimeout = setTimeout(() => el.classList.remove('show'), 3000);
+      }
+
+      // ===== DIRTY FLAG =====
+      let isDirty = false;
+
+      function markDirty() {
+        isDirty = true;
+      }
+
+      function resetDirty() {
+        isDirty = false;
+      }
+
+      // ===== AUTO-SAVE =====
+      function autoSave() {
+        const name = document.getElementById('groupNameDisplay').textContent;
+        if (!isDirty) return;
+
+        if (name === 'Без названия') {
+          showSnackbar('Таблица не сохранена (нет названия)');
+          resetDirty();
+          return;
+        }
+
+        const rows = document.querySelectorAll('#tableBody tr');
+        const data = rows.length ? collectTableData() : { rows: [] };
+        const tables = getTables();
+        const now = Date.now();
+        const existing = tables[name];
+        tables[name] = {
+          ...data,
+          createdAt: (existing && (existing.createdAt || existing.savedAt)) || now,
+          updatedAt: now
+        };
+        setTables(tables);
+        resetDirty();
+        showSnackbar('Изменения сохранены');
+      }
+
+      // ===== NAVIGATION =====
+      function showHome() {
+        closeFab();
+        closeEditorFab();
+        if (isDraggingMode) toggleMoveMode();
+        document.getElementById('editorView').style.display = 'none';
+        document.getElementById('homeView').style.display = 'block';
+        document.getElementById('fabContainer').style.display = 'block';
+        document.getElementById('fabEditor').style.display = 'none';
+        document.getElementById('fabMain').classList.remove('rotated');
+        renderTablesList();
+      }
+
+      function showEditor() {
+        if (isDraggingMode) toggleMoveMode();
+        document.getElementById('fabContainer').style.display = 'none';
+        document.getElementById('fabEditor').style.display = 'block';
+        document.getElementById('homeView').style.display = 'none';
+        document.getElementById('editorView').style.display = 'flex';
+        document.getElementById('fabMain').classList.remove('rotated');
+        document.getElementById('fabEditorBtn').classList.remove('rotated');
+      }
+
+      function goHome() {
+        autoSave();
+        showHome();
+      }
+
+      // ===== FAB главного экрана =====
+      function toggleFab() {
+        if (isDraggingMode) {
+          showSnackbar('Сначала завершите перемещение (нажмите «Готово»)');
+          return;
+        }
+        const menu = document.getElementById('fabMenu');
+        const btn = document.getElementById('fabMain');
+        const open = menu.classList.toggle('open');
+        btn.classList.toggle('rotated', open);
+      }
+
+      function closeFab() {
+        document.getElementById('fabMenu').classList.remove('open');
+        document.getElementById('fabMain').classList.remove('rotated');
+      }
+
+      // ===== FAB редактора =====
+      function toggleEditorFab() {
+        if (isDraggingMode) {
+          showSnackbar('Сначала завершите перемещение (нажмите «Готово»)');
+          return;
+        }
+        const menu = document.getElementById('fabEditorMenu');
+        const btn = document.getElementById('fabEditorBtn');
+        const open = menu.classList.toggle('open');
+        btn.classList.toggle('rotated', open);
+      }
+
+      function closeEditorFab() {
+        document.getElementById('fabEditorMenu').classList.remove('open');
+        document.getElementById('fabEditorBtn').classList.remove('rotated');
+      }
+
+      // ===== DRAG MODE =====
+      let isDraggingMode = false;
+      let sortableInstance = null;
+
+      function toggleMoveMode() {
+        const moveBtn = document.getElementById('fabMove');
+        if (moveBtn.classList.contains('disabled')) {
+          showSnackbar('Нет таблиц для перемещения');
+          return;
+        }
+
+        autoSave();
+
+        isDraggingMode = !isDraggingMode;
+        if (sortableInstance) {
+          sortableInstance.option('disabled', !isDraggingMode);
+        }
+
+        const doneBtn = document.getElementById('fabDoneBtn');
+        const fabMain = document.getElementById('fabMain');
+        const container = document.getElementById('tablesList');
+
+        if (isDraggingMode) {
+          doneBtn.classList.add('visible');
+          container.classList.add('sortable-enabled');
+          fabMain.classList.add('rotated');
+          closeFab();
+          showSnackbar('Перетаскивайте таблицы, затем нажмите «Готово»');
+        } else {
+          doneBtn.classList.remove('visible');
+          container.classList.remove('sortable-enabled');
+          fabMain.classList.remove('rotated');
+          showSnackbar('Режим перемещения выключен');
+        }
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+        closeEditorFab();
+      }
+
+      // ===== RENDER TABLES LIST =====
+      function renderTablesList() {
+        const container = document.getElementById('tablesList');
+        const tables = getTables();
+        const keys = getTableOrder();
+        const hasTables = keys.length > 0;
+
+        const moveBtn = document.getElementById('fabMove');
+        const exportBtn = document.getElementById('fabExport');
+        if (hasTables) {
+          moveBtn.classList.remove('disabled');
+          exportBtn.classList.remove('disabled');
+        } else {
+          moveBtn.classList.add('disabled');
+          exportBtn.classList.add('disabled');
+        }
+
+        if (!hasTables) {
+          container.innerHTML =
+            '<div class="empty-state">Нет сохранённых таблиц.<br>Нажмите ✎ внизу справа, чтобы создать первую.</div>';
+          if (sortableInstance) {
+            sortableInstance.destroy();
+            sortableInstance = null;
+          }
+          document.getElementById('fabDoneBtn').classList.remove('visible');
+          document.getElementById('fabMain').classList.remove('rotated');
+          return;
+        }
+
+        container.innerHTML = keys.map(k => {
+          const t = tables[k];
+          const created = formatDate(t.createdAt || t.savedAt);
+          const updated = formatDate(t.updatedAt || t.savedAt);
+          return `<div class="table-card" data-name="${escapeHtml(k)}">
+            <div class="table-card-info" data-action="open">
+              <div class="table-card-name">${escapeHtml(k)}</div>
+              <div class="table-card-meta">Создано: ${created}</div>
+              <div class="table-card-meta">Изменено: ${updated}</div>
+            </div>
+            <div class="table-card-actions">
+              <button class="dots-btn" data-action="menu" aria-label="Действия">⋮</button>
+              <div class="dropdown-menu">
+                <button data-action="rename">Переименовать</button>
+                <button class="delete" data-action="delete">Удалить</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+
+        if (sortableInstance) {
+          sortableInstance.destroy();
+        }
+        sortableInstance = typeof Sortable === 'undefined' ? null : new Sortable(container, {
+          animation: 150,
+          ghostClass: 'sortable-ghost',
+          handle: '.table-card-info',
+          disabled: !isDraggingMode,
+          delay: 150,
+          delayOnTouchOnly: true,
+          touchStartThreshold: 4,
+          onEnd: function(evt) {
+            const items = Array.from(container.children).map(el => el.dataset.name);
+            setTableOrder(items);
+            showSnackbar('Порядок таблиц обновлён');
+          }
+        });
+
+        if (isDraggingMode && hasTables) {
+          container.classList.add('sortable-enabled');
+          document.getElementById('fabDoneBtn').classList.add('visible');
+          document.getElementById('fabMain').classList.add('rotated');
+        } else {
+          container.classList.remove('sortable-enabled');
+          document.getElementById('fabDoneBtn').classList.remove('visible');
+          document.getElementById('fabMain').classList.remove('rotated');
+        }
+      }
+
+      // ===== DROPDOWN =====
+      function toggleDropdown(event, btn) {
+        event.stopPropagation();
+        const menu = btn.parentElement.querySelector('.dropdown-menu');
+        if (!menu) return;
+
+        if (menu.classList.contains('open')) {
+          menu.classList.remove('open');
+          return;
+        }
+
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+        menu.classList.add('open');
+      }
+
+      document.getElementById('tablesList').addEventListener('click', function(e) {
+        const el = e.target.closest('[data-action]');
+        if (!el) return;
+        const card = el.closest('.table-card');
+        if (!card) return;
+        const name = card.dataset.name;
+        const action = el.dataset.action;
+        if (action === 'open') openTable(name);
+        else if (action === 'menu') toggleDropdown(e, el);
+        else if (action === 'rename') showRenameModal(name);
+        else if (action === 'delete') deleteTable(name);
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.table-card-actions')) {
+          document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+        }
+        const fab = document.getElementById('fabContainer');
+        if (fab && !fab.contains(e.target) && !isDraggingMode) {
+          closeFab();
+        }
+        const fabEd = document.getElementById('fabEditor');
+        if (fabEd && !fabEd.contains(e.target) && !isDraggingMode) {
+          closeEditorFab();
+        }
+      });
+
+      // ===== DELETE TABLE =====
+      function deleteTable(name) {
+        showConfirmModal('Удаление таблицы', 'Удалить таблицу «' + name + '»?', function() {
+          autoSave();
+          const tables = getTables();
+          delete tables[name];
+          setTables(tables);
+          const order = getTableOrder().filter(k => k !== name);
+          setTableOrder(order);
+          renderTablesList();
+          showSnackbar('Таблица удалена');
+          document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+        }, null, true);
+      }
+
+      // ===== RENAME =====
+      let renameTarget = null;
+
+      function showRenameModal(name) {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+        autoSave();
+        renameTarget = name;
+        const input = document.getElementById('renameInput');
+        const btn = document.getElementById('renameConfirmBtn');
+        input.value = name;
+        document.getElementById('renameError').style.display = 'none';
+        document.getElementById('renameExistsError').style.display = 'none';
+        btn.disabled = false;
+        document.getElementById('renameModal').style.display = 'flex';
+        input.focus();
+        input.oninput = function() {
+          const val = this.value.trim();
+          btn.disabled = val === '';
+          if (val === '') {
+            document.getElementById('renameError').style.display = 'none';
+            document.getElementById('renameExistsError').style.display = 'none';
+            return;
+          }
+          document.getElementById('renameError').style.display = 'none';
+          const tables = getTables();
+          if (val !== renameTarget && tables[val]) {
+            document.getElementById('renameExistsError').style.display = 'block';
+          } else {
+            document.getElementById('renameExistsError').style.display = 'none';
+          }
+        };
+      }
+
+      function closeRenameModal() {
+        document.getElementById('renameModal').style.display = 'none';
+        renameTarget = null;
+        document.getElementById('renameError').style.display = 'none';
+        document.getElementById('renameExistsError').style.display = 'none';
+      }
+
+      function confirmRename() {
+        const newName = document.getElementById('renameInput').value.trim().slice(0, MAX_NAME);
+        if (!newName) {
+          document.getElementById('renameError').style.display = 'block';
+          document.getElementById('renameExistsError').style.display = 'none';
+          return;
+        }
+        document.getElementById('renameError').style.display = 'none';
+
+        if (newName === renameTarget) { closeRenameModal(); return; }
+        const tables = getTables();
+        if (tables[newName]) {
+          document.getElementById('renameExistsError').style.display = 'block';
+          document.getElementById('renameError').style.display = 'none';
+          return;
+        }
+        document.getElementById('renameExistsError').style.display = 'none';
+
+        tables[newName] = tables[renameTarget];
+        delete tables[renameTarget];
+        const order = getTableOrder();
+        const idx = order.indexOf(renameTarget);
+        if (idx !== -1) order[idx] = newName;
+        setTableOrder(order);
+        setTables(tables);
+        closeRenameModal();
+        renderTablesList();
+        showSnackbar('Таблица переименована в «' + newName + '»');
+      }
+
+      // ===== OPEN TABLE =====
+      function openTable(name) {
+        if (isDraggingMode) {
+          showSnackbar('Сначала завершите перемещение (нажмите «Готово»)');
+          return;
+        }
+        autoSave();
+        const tables = getTables();
+        if (!tables[name]) return;
+        applyTableData(tables[name]);
+        document.getElementById('groupNameDisplay').textContent = name;
+        resetDirty();
+        showEditor();
+      }
+
+      // ===== SAVE / CREATE =====
+      let saveModalMode = 'create';
+
+      function fabCreate() {
+        closeFab();
+        saveModalMode = 'create';
+        document.getElementById('saveModalTitle').textContent = 'Название новой таблицы';
+        document.getElementById('saveModalConfirm').textContent = 'Создать';
+        const input = document.getElementById('saveName');
+        const btn = document.getElementById('saveModalConfirm');
+        input.value = '';
+        document.getElementById('saveNameError').style.display = 'none';
+        btn.disabled = true;
+        document.getElementById('saveModal').style.display = 'flex';
+        input.focus();
+        input.oninput = function() {
+          const val = this.value.trim();
+          btn.disabled = val === '';
+          if (val === '') {
+            document.getElementById('saveNameError').style.display = 'none';
+            return;
+          }
+          const tables = getTables();
+          if (tables[val]) {
+            document.getElementById('saveNameError').style.display = 'block';
+          } else {
+            document.getElementById('saveNameError').style.display = 'none';
+          }
+        };
+      }
+
+      function saveTable() {
+        const currentName = document.getElementById('groupNameDisplay').textContent;
+        if (currentName === 'Без названия') {
+          showPromptModal('Сохранение таблицы', 'Введите название для новой таблицы', '', function(newName) {
+            newName = (newName || '').slice(0, MAX_NAME);
+            if (!newName) return;
+            const tables = getTables();
+            const now = Date.now();
+            if (tables[newName]) {
+              showAlertModal('Ошибка', 'Таблица с таким именем уже существует. Введите другое название.');
+              return;
+            }
+            const data = collectTableData();
+            tables[newName] = { ...data, createdAt: now, updatedAt: now };
+            const order = getTableOrder();
+            if (!order.includes(newName)) order.push(newName);
+            setTableOrder(order);
+            setTables(tables);
+            document.getElementById('groupNameDisplay').textContent = newName;
+            resetDirty();
+            showSnackbar('Таблица «' + newName + '» сохранена');
+          });
+        } else {
+          const data = collectTableData();
+          const tables = getTables();
+          const now = Date.now();
+          const existing = tables[currentName];
+          tables[currentName] = { ...data, createdAt: (existing && (existing.createdAt || existing.savedAt)) || now,
+            updatedAt: now };
+          setTables(tables);
+          resetDirty();
+          showSnackbar('Таблица «' + currentName + '» сохранена');
+        }
+        closeEditorFab();
+      }
+
+      function saveTableWithName() {
+        const name = document.getElementById('saveName').value.trim().slice(0, MAX_NAME);
+        if (!name) {
+          document.getElementById('saveNameError').textContent = 'Введите название';
+          document.getElementById('saveNameError').style.display = 'block';
+          return;
+        }
+        const tables = getTables();
+        const now = Date.now();
+
+        if (tables[name]) {
+          document.getElementById('saveNameError').textContent = 'Таблица с таким именем уже существует';
+          document.getElementById('saveNameError').style.display = 'block';
+          return;
+        } else {
+          document.getElementById('saveNameError').style.display = 'none';
+        }
+
+        if (saveModalMode === 'create') {
+          tables[name] = { rows: [], createdAt: now, updatedAt: now };
+          const order = getTableOrder();
+          if (!order.includes(name)) order.push(name);
+          setTableOrder(order);
+          setTables(tables);
+          closeSaveModal();
+          document.getElementById('groupNameDisplay').textContent = name;
+          clearTableBody();
+          resetDirty();
+          showEditor();
+          showSnackbar('Таблица «' + name + '» создана');
+        }
+      }
+
+      function closeSaveModal() {
+        document.getElementById('saveModal').style.display = 'none';
+        document.getElementById('saveNameError').style.display = 'none';
+      }
+
+      // ===== CLEAR MODAL =====
+      function showClearModal() {
+        document.getElementById('clearModal').style.display = 'flex';
+        closeEditorFab();
+      }
+
+      function closeClearModal() {
+        document.getElementById('clearModal').style.display = 'none';
+      }
+
+      function confirmClear() {
+        closeClearModal();
+        clearTableBody();
+        showSnackbar('Таблица очищена');
+      }
+
+      // ===== IMPORT NAME MODAL =====
+      let importDataCallback = null;
+      let importDefaultName = '';
+
+      function showImportNameModal(defaultName, callback) {
+        importDefaultName = defaultName || '';
+        const input = document.getElementById('importNameInput');
+        const btn = document.getElementById('importNameConfirmBtn');
+        input.value = importDefaultName;
+        document.getElementById('importNameError').style.display = 'none';
+        document.getElementById('importNameExistsError').style.display = 'none';
+        btn.disabled = importDefaultName === '';
+        document.getElementById('importNameModal').style.display = 'flex';
+        input.focus();
+        importDataCallback = callback;
+        input.oninput = function() {
+          const val = this.value.trim();
+          btn.disabled = val === '';
+          if (val === '') {
+            document.getElementById('importNameError').style.display = 'none';
+            document.getElementById('importNameExistsError').style.display = 'none';
+            return;
+          }
+          document.getElementById('importNameError').style.display = 'none';
+          const tables = getTables();
+          if (tables[val]) {
+            document.getElementById('importNameExistsError').textContent = 'Таблица с таким именем уже существует';
+            document.getElementById('importNameExistsError').style.display = 'block';
+          } else {
+            document.getElementById('importNameExistsError').style.display = 'none';
+          }
+        };
+      }
+
+      function closeImportNameModal() {
+        document.getElementById('importNameModal').style.display = 'none';
+        importDataCallback = null;
+        importDefaultName = '';
+        document.getElementById('importNameError').style.display = 'none';
+        document.getElementById('importNameExistsError').style.display = 'none';
+      }
+
+      function confirmImportName() {
+        const name = document.getElementById('importNameInput').value.trim().slice(0, MAX_NAME);
+        if (!name) {
+          document.getElementById('importNameError').textContent = 'Введите название';
+          document.getElementById('importNameError').style.display = 'block';
+          document.getElementById('importNameExistsError').style.display = 'none';
+          return;
+        }
+        document.getElementById('importNameError').style.display = 'none';
+
+        const tables = getTables();
+        let finalName = name;
+        if (tables[name]) {
+          const existing = Object.keys(tables);
+          finalName = generateUniqueName(name, existing);
+          document.getElementById('importNameExistsError').textContent = 'Имя занято, таблица сохранена как «' + finalName +
+            '»';
+          document.getElementById('importNameExistsError').style.display = 'block';
+        } else {
+          document.getElementById('importNameExistsError').style.display = 'none';
+        }
+
+        if (importDataCallback) {
+          importDataCallback(finalName);
+        }
+        closeImportNameModal();
+      }
+
+      // ===== DATA COLLECTION / APPLICATION =====
+      function collectTableData() {
+        const rows = [];
+        document.querySelectorAll('#tableBody tr').forEach(tr => {
+          const name = tr.querySelector('.name-inp').value;
+          const photo = tr.querySelector('.photo-img').src || '';
+          const grades = {};
+          tr.querySelectorAll('.grade-inp').forEach(inp => {
+            grades[inp.dataset.grade] = inp.value;
+          });
+          rows.push({ name, photo, grades, n: tr.querySelector('.n-inp').value });
+        });
+        return { rows };
+      }
+
+      function applyTableData(data) {
+        clearTableBody();
+        data = sanitizeTable(data);
+        const fragment = document.createDocumentFragment();
+        data.rows.forEach(r => {
+          const tr = createRow();
+          tr.querySelector('.name-inp').value = r.name || '';
+
+          const img = tr.querySelector('.photo-img');
+          const lbl = tr.querySelector('.photo-wrap span');
+          img.style.display = 'none';
+          if (lbl) lbl.style.display = 'block';
+          if (r.photo && r.photo !== '') {
+            img.src = r.photo;
+            img.style.display = 'block';
+            if (lbl) lbl.style.display = 'none';
+          } else {
+            img.src = '';
+          }
+
+          if (r.grades) {
+            tr.querySelectorAll('.grade-inp').forEach(inp => {
+              if (r.grades[inp.dataset.grade] !== undefined) inp.value = r.grades[inp.dataset.grade];
+            });
+          }
+          if (r.n !== undefined) tr.querySelector('.n-inp').value = r.n;
+          fragment.appendChild(tr);
+        });
+        document.getElementById('tableBody').appendChild(fragment);
+        recalcAndSort();
+        resetDirty();
+      }
+
+      function clearTableBody() {
+        document.getElementById('tableBody').innerHTML = '';
+        markDirty();
+      }
+
+      // ===== EXPORT =====
+      function fabExportAll() {
+        const exportBtn = document.getElementById('fabExport');
+        if (exportBtn.classList.contains('disabled')) {
+          showSnackbar('Нет таблиц для экспорта');
+          return;
+        }
+        autoSave();
+        closeFab();
+        const tables = getTables();
+        const keys = getTableOrder();
+        if (!keys.length) {
+          showAlertModal('Экспорт', 'Нет таблиц для экспорта');
+          return;
+        }
+        const list = document.getElementById('exportTableList');
+        list.innerHTML = keys.map(k =>
+          `<div class="export-table-item">
+            <span>${escapeHtml(k)}</span>
+            <span class="export-btns">
+              <button data-name="${escapeHtml(k)}" data-mode="file">Файл</button>
+              <button data-name="${escapeHtml(k)}" data-mode="copy">Копировать</button>
+            </span>
+          </div>`
+        ).join('');
+        list.querySelectorAll('button').forEach(b => {
+          b.onclick = function() {
+            if (b.dataset.mode === 'copy') copyTableText(b.dataset.name);
+            else exportSingleTable(b.dataset.name);
+          };
+        });
+        document.getElementById('exportSelectModal').style.display = 'flex';
+      }
+
+      function closeExportSelectModal() {
+        document.getElementById('exportSelectModal').style.display = 'none';
+      }
+
+      function tableJson(name) {
+        const tables = getTables();
+        const t = tables[name];
+        if (!t) return null;
+        return JSON.stringify({ ...sanitizeTable(t), createdAt: toTime(t.createdAt, Date.now()), updatedAt: toTime(t.updatedAt, Date.now()) }, null, 2);
+      }
+
+      function showManualCopy(text) {
+        const ta = document.getElementById('manualCopyText');
+        ta.value = text;
+        document.getElementById('manualCopyModal').style.display = 'flex';
+        ta.focus();
+        ta.select();
+      }
+
+      function closeManualCopy() {
+        document.getElementById('manualCopyModal').style.display = 'none';
+      }
+
+      async function copyTableText(name) {
+        autoSave();
+        const json = tableJson(name);
+        if (json === null) {
+          showAlertModal('Ошибка', 'Таблица не найдена');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(json);
+          closeExportSelectModal();
+          showSnackbar('Таблица «' + name + '» скопирована. Вставьте её в окне импорта');
+        } catch (err) {
+          closeExportSelectModal();
+          showManualCopy(json);
+        }
+      }
+
+      async function exportSingleTable(name) {
+        autoSave();
+        const tables = getTables();
+        if (!tables[name]) {
+          showAlertModal('Ошибка', 'Таблица не найдена');
+          return;
+        }
+        const t = tables[name];
+        const data = { ...sanitizeTable(t), createdAt: toTime(t.createdAt, Date.now()), updatedAt: toTime(t.updatedAt, Date.now()) };
+        const json = JSON.stringify(data, null, 2);
+        const fileName = (name.replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'table') + '.json';
+
+        let downloads = null;
+        try {
+          downloads = (window.claude && window.claude.use) ? await window.claude.use('downloads') : null;
+        } catch (e) { downloads = null; }
+
+        if (downloads) {
+          try {
+            await downloads.save({ filename: fileName, data: json });
+            closeExportSelectModal();
+            showSnackbar('Таблица «' + name + '» экспортирована');
+          } catch (err) {
+            const code = err && err.code;
+            if (code === 'declined') {
+              showSnackbar('Экспорт отменён');
+            } else if (code === 'rate_limited') {
+              showSnackbar('Подождите немного и повторите экспорт');
+            } else if (code === 'host_unavailable') {
+              closeExportSelectModal();
+              showAlertModal('Экспорт', 'В этом приложении нельзя сохранять файлы. Откройте страницу в браузере на компьютере.');
+            } else {
+              showAlertModal('Ошибка экспорта', 'Не удалось сохранить файл. Попробуйте ещё раз.');
+            }
+          }
+          return;
+        }
+
+        // Обычный браузер вне Claude: скачивание через ссылку
+        try {
+          const blob = new Blob([json], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          closeExportSelectModal();
+          showSnackbar('Таблица «' + name + '» экспортирована');
+        } catch (err) {
+          showAlertModal('Ошибка экспорта', 'Не удалось сохранить файл.');
+        }
+      }
+
+      // ===== IMPORT =====
+      function resetImportLabel() {
+        document.getElementById('importFileLabel').textContent = 'Выбрать файл';
+      }
+
+      (function setupImportPicker() {
+        const input = document.getElementById('importFileInput');
+        const drop = document.getElementById('fileDrop');
+        input.addEventListener('change', function() {
+          const f = input.files && input.files[0];
+          document.getElementById('importFileLabel').textContent = f ? f.name : 'Выбрать файл';
+        });
+        drop.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            input.click();
+          }
+        });
+        ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, function(e) {
+          e.preventDefault();
+          drop.classList.add('dragover');
+        }));
+        ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, function(e) {
+          e.preventDefault();
+          drop.classList.remove('dragover');
+        }));
+        drop.addEventListener('drop', function(e) {
+          const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (!f) return;
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(f);
+            input.files = dt.files;
+            document.getElementById('importFileLabel').textContent = f.name;
+          } catch (err) {}
+        });
+      })();
+
+      function fabImport() {
+        closeFab();
+        resetImportLabel();
+        document.getElementById('importPasteText').value = '';
+        document.getElementById('importFileInput').value = '';
+        document.getElementById('importFileModal').style.display = 'flex';
+      }
+
+      function closeImportFileModal() {
+        document.getElementById('importFileModal').style.display = 'none';
+      }
+
+      function handleImportFile() {
+        const input = document.getElementById('importFileInput');
+        const file = input.files[0];
+        const text = document.getElementById('importPasteText').value.trim();
+        if (!file && !text) {
+          closeImportFileModal();
+          showAlertModal('Импорт', 'Выберите JSON-файл или вставьте текст таблицы', function() {
+            document.getElementById('importFileModal').style.display = 'flex';
+          });
+          return;
+        }
+        if (file && file.size > 15 * 1024 * 1024) {
+          closeImportFileModal();
+          showAlertModal('Импорт', 'Файл слишком большой (максимум 15 МБ)');
+          return;
+        }
+        const reader = new FileReader();
+        const run = function(raw, fileName) {
+          try {
+            const data = JSON.parse(raw);
+            if (data && typeof data === 'object') {
+              const tables = getTables();
+              const now = Date.now();
+              const existingNames = Object.keys(tables);
+
+              if (Array.isArray(data.rows)) {
+                closeImportFileModal();
+                const defaultName = getFileNameWithoutExtension(fileName) || 'Импортированная';
+                showImportNameModal(defaultName, function(finalName) {
+                  const tables2 = getTables();
+                  const now2 = Date.now();
+                  if (tables2[finalName]) {
+                    finalName = generateUniqueName(finalName, Object.keys(tables2));
+                  }
+                  tables2[finalName] = { ...sanitizeTable(data), createdAt: now2, updatedAt: now2 };
+                  const order = getTableOrder();
+                  if (!order.includes(finalName)) order.push(finalName);
+                  setTableOrder(order);
+                  setTables(tables2);
+                  openTable(finalName);
+                  showSnackbar('Таблица «' + finalName + '» импортирована');
+                });
+              } else {
+                let renamed = [];
+                const newData = Object.create(null);
+                for (let key in data) {
+                  const t = data[key];
+                  if (t && typeof t === 'object' && !Array.isArray(t) && t.rows) {
+                    let name = String(key).slice(0, MAX_NAME);
+                    if (existingNames.includes(name) || newData[name]) {
+                      const allNames = [...Object.keys(tables), ...Object.keys(newData)];
+                      const newName = generateUniqueName(name, allNames);
+                      renamed.push(name + ' → ' + newName);
+                      name = newName;
+                    }
+                    newData[name] = { ...sanitizeTable(t), createdAt: toTime(t.createdAt || t.savedAt, now),
+                      updatedAt: toTime(t.updatedAt || t.savedAt, now) };
+                  }
+                }
+                for (let k in newData) {
+                  tables[k] = newData[k];
+                }
+                const order = getTableOrder();
+                Object.keys(newData).forEach(k => {
+                  if (!order.includes(k)) order.push(k);
+                });
+                setTableOrder(order);
+                setTables(tables);
+                closeImportFileModal();
+                renderTablesList();
+                if (renamed.length) {
+                  showSnackbar('Импортировано ' + Object.keys(newData).length + ' таблиц. Переименованы: ' + renamed.join(
+                  '; '));
+                } else {
+                  showSnackbar('Импортировано ' + Object.keys(newData).length + ' таблиц');
+                }
+              }
+            } else {
+              closeImportFileModal();
+              showAlertModal('Ошибка импорта', 'Неверный формат JSON', function() {
+                document.getElementById('importFileModal').style.display = 'flex';
+              });
+            }
+          } catch (err) {
+            closeImportFileModal();
+            showAlertModal('Ошибка чтения файла',
+              err.message +
+              '\n\nВозможные причины:\n• В файле есть незакрытая кавычка (например, в названии или фамилии)\n• Не хватает запятой между полями\n• Файл повреждён или содержит недопустимые символы\n\nПроверьте файл в любом текстовом редакторе и убедитесь, что он является корректным JSON.',
+              function() {
+                document.getElementById('importFileModal').style.display = 'flex';
+              }
+            );
+          }
+        };
+        if (file) {
+          reader.onload = function(e) { run(e.target.result, file.name); };
+          reader.onerror = function() {
+            closeImportFileModal();
+            showAlertModal('Ошибка чтения файла', 'Не удалось прочитать файл. Попробуйте вставить текст таблицы вручную.', function() {
+              document.getElementById('importFileModal').style.display = 'flex';
+            });
+          };
+          reader.readAsText(file);
+        } else {
+          run(text, 'Импортированная');
+        }
+      }
+
+      // ===== TABLE LOGIC =====
+      function createRow() {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="border:1px solid #ddd;padding:4px;text-align:center;vertical-align:middle;background:#fafafa;">
+            <div class="photo-wrap">
+              <img class="photo-img" src="" alt="">
+              <span>📷</span>
+              <input type="file" accept="image/*" class="photo-inp" aria-label="Загрузить фото">
+            </div>
+          </td>
+          <td style="border:1px solid #ddd;padding:8px;" class="row-num">1</td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="text" class="name-inp" placeholder="Имя" aria-label="Имя"></td>
+          <td style="border:1px solid #ddd;padding:8px;" class="total-count">0</td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" data-grade="5" class="grade-inp" placeholder="-" aria-label="Оценка 5"></td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" data-grade="4" class="grade-inp" placeholder="-" aria-label="Оценка 4"></td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" data-grade="3" class="grade-inp" placeholder="-" aria-label="Оценка 3"></td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" data-grade="2" class="grade-inp" placeholder="-" aria-label="Оценка 2"></td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" data-grade="1" class="grade-inp" placeholder="-" aria-label="Оценка 1"></td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" data-grade="0" class="grade-inp late" placeholder="-" aria-label="Оценка 0"></td>
+          <td style="border:1px solid #ddd;padding:0;"><input type="number" class="n-inp late" placeholder="-" aria-label="Пропуски (Н)"></td>
+          <td style="border:1px solid #ddd;padding:8px;" class="total-score">0</td>
+          <td style="border:1px solid #ddd;padding:4px;text-align:center;background:#fafafa;">
+            <button class="del-row-btn" aria-label="Удалить строку">×</button>
+          </td>
+        `;
+        return tr;
+      }
+
+      // Обработка фото
+      function handlePhotoUpload(e) {
+        const inp = e.target;
+        if (inp.type !== 'file') return;
+        const wrap = inp.closest('.photo-wrap');
+        if (!wrap) return;
+        const img = wrap.querySelector('.photo-img');
+        const lbl = wrap.querySelector('span');
+        const file = inp.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          img.src = ev.target.result;
+          img.style.display = 'block';
+          if (lbl) lbl.style.display = 'none';
+          markDirty();
+        };
+        reader.readAsDataURL(file);
+      }
+
+      // Удаление строки
+      function handleDeleteRow(e) {
+        const btn = e.target.closest('.del-row-btn');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        if (tr) {
+          tr.remove();
+          recalcAndSort();
+          markDirty();
+        }
+      }
+
+      // Проверка, пустая ли строка (нет имени и все оценки равны 0)
+      function isRowEmpty(tr) {
+        const name = tr.querySelector('.name-inp').value.trim();
+        if (name !== '') return false;
+        let hasData = false;
+        tr.querySelectorAll('.grade-inp, .n-inp').forEach(inp => {
+          const val = parseFloat(inp.value);
+          if (!isNaN(val) && val !== 0) hasData = true;
+        });
+        return !hasData;
+      }
+
+      // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
+      function handleInput(e) {
+        const target = e.target;
+        if (target.type === 'file' || target.tagName === 'BUTTON') return;
+
+        markDirty();
+        if (target.classList.contains('grade-inp') || target.classList.contains('n-inp')) {
+          recalc();
+        }
+      }
+
+      function handleBlur(e) {
+        const target = e.target;
+        if (target.classList.contains('grade-inp') || target.classList.contains('n-inp')) {
+          recalcAndSort();
+        }
+      }
+
+      // ===== ПОДПИСКА НА СОБЫТИЯ =====
+      const tbody = document.getElementById('tableBody');
+      tbody.addEventListener('change', handlePhotoUpload);
+      tbody.addEventListener('click', handleDeleteRow);
+      tbody.addEventListener('input', handleInput);
+      tbody.addEventListener('blur', handleBlur, true);
+
+      // ===== ПЕРЕСЧЁТ И СОРТИРОВКА =====
+      function renumber() {
+        document.querySelectorAll('#tableBody tr').forEach((tr, i) => {
+          tr.querySelector('.row-num').textContent = i + 1;
+        });
+      }
+
+      function recalc() {
+        document.querySelectorAll('#tableBody tr').forEach(tr => {
+          let count = 0,
+            score = 0;
+          tr.querySelectorAll('.grade-inp').forEach(inp => {
+            const v = parseFloat(inp.value) || 0;
+            const g = parseInt(inp.dataset.grade);
+            if (g >= 1) count += v;
+            if (g === 5) score += v * 10;
+            else if (g === 4) score += v * 8;
+            else if (g === 3) score += v * 5;
+            else if (g === 2) score += v * (-1);
+            else if (g === 1) score += v * (-2);
+            else if (g === 0) score += v * (-1);
+          });
+          const n = parseFloat(tr.querySelector('.n-inp').value) || 0;
+          score += n * (-2);
+          tr.querySelector('.total-count').textContent = count;
+          tr.querySelector('.total-score').textContent = score;
+        });
+      }
+
+      function sortRows() {
+        const tb = document.getElementById('tableBody');
+        const rows = Array.from(tb.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+          const aEmpty = isRowEmpty(a);
+          const bEmpty = isRowEmpty(b);
+          if (aEmpty && !bEmpty) return 1;
+          if (!aEmpty && bEmpty) return -1;
+          const sa = parseFloat(a.querySelector('.total-score').textContent) || 0;
+          const sb = parseFloat(b.querySelector('.total-score').textContent) || 0;
+          return sb - sa;
+        });
+        rows.forEach(r => tb.appendChild(r));
+        renumber();
+      }
+
+      function recalcAndSort() {
+        recalc();
+        sortRows();
+      }
+
+      function addRow() {
+        const tb = document.getElementById('tableBody');
+        const tr = createRow();
+        tb.appendChild(tr);
+        recalcAndSort();
+        markDirty();
+        closeEditorFab();
+      }
+
+      // ===== MODAL OVERLAY CLOSE =====
+      window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal-overlay')) {
+          e.target.style.display = 'none';
+          document.querySelectorAll('.error-text').forEach(el => el.style.display = 'none');
+        }
+      });
+
+      // ===== КЛАВИАТУРА: Enter подтверждает, Esc закрывает окно =====
+      document.addEventListener('keydown', function(e) {
+        const open = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => m.style.display === 'flex');
+        if (!open.length) return;
+        const top = open.find(m => m.classList.contains('modal-overlay-alert')) || open[open.length - 1];
+        if (e.key === 'Escape') {
+          const btn = top.querySelector('.modal-cancel') || top.querySelector('.modal-confirm');
+          if (btn) btn.click();
+        } else if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type === 'text' && e.target.id !== 'promptInput') {
+          const ok = top.querySelector('.modal-confirm:not(:disabled)');
+          if (ok) { e.preventDefault(); ok.click(); }
+        }
+      });
+
+      // ===== INIT =====
+      showHome();
+
+      // Expose globally
+      window.goHome = goHome;
+      window.openTable = openTable;
+      window.toggleDropdown = toggleDropdown;
+      window.deleteTable = deleteTable;
+      window.showRenameModal = showRenameModal;
+      window.confirmRename = confirmRename;
+      window.closeRenameModal = closeRenameModal;
+      window.fabCreate = fabCreate;
+      window.saveTable = saveTable;
+      window.saveTableWithName = saveTableWithName;
+      window.closeSaveModal = closeSaveModal;
+      window.showClearModal = showClearModal;
+      window.closeClearModal = closeClearModal;
+      window.confirmClear = confirmClear;
+      window.showImportNameModal = showImportNameModal;
+      window.closeImportNameModal = closeImportNameModal;
+      window.confirmImportName = confirmImportName;
+      window.addRow = addRow;
+      window.fabExportAll = fabExportAll;
+      window.exportSingleTable = exportSingleTable;
+      window.closeExportSelectModal = closeExportSelectModal;
+      window.fabImport = fabImport;
+      window.handleImportFile = handleImportFile;
+      window.closeImportFileModal = closeImportFileModal;
+      window.closeManualCopy = closeManualCopy;
+      window.toggleFab = toggleFab;
+      window.toggleEditorFab = toggleEditorFab;
+      window.toggleMoveMode = toggleMoveMode;
+      window.showAlertModal = showAlertModal;
+      window.showConfirmModal = showConfirmModal;
+      window.showPromptModal = showPromptModal;
+
+    })();
+  </script>
+
+
+
+  <script>
+    // Установка приложения (PWA)
+    (function () {
+      const installBtn = document.getElementById('installAppBtn');
+      let installPrompt = null;
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isStandalone) return;
+
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        installPrompt = event;
+        installBtn.hidden = false;
+      });
+
+      installBtn.addEventListener('click', async () => {
+        if (installPrompt) {
+          installPrompt.prompt();
+          await installPrompt.userChoice;
+          installPrompt = null;
+          installBtn.hidden = true;
+          return;
+        }
+        // Safari/iOS не предоставляет beforeinstallprompt.
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        alert(isIOS
+          ? 'Чтобы установить приложение: нажмите «Поделиться» в Safari, затем «На экран Домой». '
+          : 'Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран».');
+      });
+
+      window.addEventListener('appinstalled', () => {
+        installBtn.hidden = true;
+        installPrompt = null;
+      });
+
+      if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./service-worker.js').catch((error) => {
+            console.warn('Не удалось зарегистрировать Service Worker:', error);
+          });
+        });
+      }
+    })();
+  </script>
+
+</body></html>
