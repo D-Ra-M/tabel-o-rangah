@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Табель о рангах">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/icon-192.svg" type="image/png">
+  <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.svg">
 </head><body>
 
@@ -1258,8 +1258,14 @@
       // ===== DIRTY FLAG =====
       let isDirty = false;
 
+      let autoSaveTimer = null;
+
       function markDirty() {
         isDirty = true;
+        // Сохраняем изменения автоматически, даже если пользователь
+        // просто закроет приложение, не нажав отдельную кнопку.
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(() => autoSave(), 400);
       }
 
       function resetDirty() {
@@ -1268,6 +1274,8 @@
 
       // ===== AUTO-SAVE =====
       function autoSave() {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
         const name = document.getElementById('groupNameDisplay').textContent;
         if (!isDirty) return;
 
@@ -1319,6 +1327,13 @@
         autoSave();
         showHome();
       }
+
+      // Принудительно сохраняем текущую таблицу при сворачивании
+      // приложения, закрытии вкладки или переходе страницы в фон.
+      window.addEventListener('pagehide', autoSave);
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') autoSave();
+      });
 
       // ===== FAB главного экрана =====
       function toggleFab() {
