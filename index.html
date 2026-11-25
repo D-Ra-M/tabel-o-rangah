@@ -10,7 +10,6 @@
   <link rel="apple-touch-icon" href="icons/icon-192.svg">
 </head><body>
 
-  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
   <script src="./vendor/sortable.min.js"></script>
   <style>
     /* ----- Reset & Base ----- */
@@ -2543,15 +2542,35 @@
         });
       }
 
+      let heicLoaderPromise = null;
+      function loadHeicConverter() {
+        if (typeof window.heic2any === 'function') return Promise.resolve();
+        if (!heicLoaderPromise) {
+          heicLoaderPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+            script.crossOrigin = 'anonymous';
+            script.referrerPolicy = 'no-referrer';
+            script.onload = () => typeof window.heic2any === 'function'
+              ? resolve()
+              : reject(new Error('Не удалось инициализировать обработчик HEIC.'));
+            script.onerror = () => {
+              heicLoaderPromise = null;
+              reject(new Error('Для обработки HEIC/HEIF требуется интернет. Выберите JPG или PNG либо повторите попытку позже.'));
+            };
+            document.head.appendChild(script);
+          });
+        }
+        return heicLoaderPromise;
+      }
+
       async function decodePhotoFile(file) {
         const isHeic = /\.(heic|heif)$/i.test(file.name || '') ||
           /image\/(heic|heif)/i.test(file.type || '');
         let sourceFile = file;
 
         if (isHeic) {
-          if (typeof window.heic2any !== 'function') {
-            throw new Error('Для обработки HEIC/HEIF требуется подключение к интернету. Попробуйте выбрать фото в JPG или PNG.');
-          }
+          await loadHeicConverter();
           const converted = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
           sourceFile = Array.isArray(converted) ? converted[0] : converted;
         }
