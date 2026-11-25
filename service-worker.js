@@ -1,4 +1,4 @@
-const CACHE_NAME = "tabel-o-rangah-v2";
+const CACHE_NAME = "tabel-o-rangah-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
