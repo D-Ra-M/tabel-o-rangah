@@ -1042,29 +1042,6 @@
     }
   }
 
-  async function compressPhotos() {
-    closeEditorFab();
-    const imgs = Array.from(document.querySelectorAll('#tableBody .photo-img'))
-      .filter(img => (img.getAttribute('src') || '').length >= Photo.RECOMPRESS_MIN);
-    if (!imgs.length) { UI.snackbar('Все фото уже компактные'); return; }
-    UI.snackbar('Сжимаю фото: ' + imgs.length + '…');
-    let done = 0;
-    let saved = 0;
-    for (const img of imgs) {
-      const old = img.getAttribute('src');
-      try {
-        const next = await Photo.recompress(old);
-        if (next !== old && img.isConnected) {
-          img.src = next;
-          saved += old.length - next.length;
-          done++;
-        }
-      } catch (e) { /* пропускаем проблемное фото */ }
-    }
-    if (done) markDirty();
-    UI.snackbar(done ? 'Сжато фото: ' + done + ', освобождено ≈ ' + Math.round(saved * 0.75 / 1024) + ' КБ' : 'Фото не удалось уменьшить');
-  }
-
   function handleDeleteRow(e) {
     const btn = e.target.closest('.del-row-btn');
     if (!btn) return;
@@ -1184,7 +1161,7 @@
   const actions = {
     goHome, toggleMoveMode, fabCreate, startBulkTableDelete, fabImport, fabExportAll,
     downloadFullBackup, fabRestore, toggleFab, addRow, startBulkRowDelete, saveTable,
-    compressPhotos, showClearModal, toggleEditorFab,
+    showClearModal, toggleEditorFab,
     confirmBulkTableDelete, cancelBulkTableDelete, confirmBulkRowDelete, cancelBulkRowDelete,
     saveTableWithName, closeSaveModal, confirmRename, closeRenameModal,
     confirmClear, closeClearModal, confirmImportName, closeImportNameModal,

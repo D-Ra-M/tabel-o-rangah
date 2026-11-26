@@ -14,7 +14,6 @@
   const THUMB_SIDE = 400;               // длинная сторона превью, px
   const JPEG_QUALITY = 0.82;
   const MAX_DATA_URL = 700000;          // потолок для готового превью
-  const RECOMPRESS_MIN = 120000;        // старые фото крупнее — кандидаты на сжатие
 
   const HEIC_URL = './vendor/heic/convert.html';
 
@@ -144,18 +143,5 @@
     return bitmapToThumb(await loadBitmap(source));
   }
 
-  // Старое крупное фото (data-URL) -> превью. Возвращает исходник, если сжатие не помогло.
-  async function recompress(dataUrl) {
-    if (typeof dataUrl !== 'string' || dataUrl.length < RECOMPRESS_MIN) return dataUrl;
-    const image = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Не удалось прочитать фото.'));
-      img.src = dataUrl;
-    });
-    const thumb = await bitmapToThumb(image);
-    return thumb.length < dataUrl.length ? thumb : dataUrl;
-  }
-
-  window.TabelPhoto = { MAX_INPUT, RECOMPRESS_MIN, isHeic, process, recompress };
+  window.TabelPhoto = { MAX_INPUT, isHeic, process };
 })();

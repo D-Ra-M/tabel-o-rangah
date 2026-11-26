@@ -995,7 +995,6 @@ td.row-num, td.total-count, td.total-score { padding: 8px; }
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 .fab-mini.restore { background: #00695c; }
-.fab-editor .fab-mini.compress { background: #00695c; }
 .table-card-info:focus-visible { outline: 2px solid #1565c0; outline-offset: 2px; border-radius: 6px; }
 
 /* Уважаем системную настройку «уменьшить анимацию» */

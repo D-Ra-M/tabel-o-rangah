@@ -217,21 +217,6 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   const evalBlocked = await page.evaluate(async () => { await new Promise(r => setTimeout(r, 50)); try { new Function('return 1')(); return false; } catch (e) { return e.name === 'EvalError'; } });
   ok(evalBlocked, 'eval / new Function в основной странице запрещены');
 
-  section('8. «Сжать фото» уменьшает старые крупные фото');
-  const oldBig = await page.evaluate(async () => {
-    const c = document.createElement('canvas'); c.width = 1000; c.height = 1000;
-    const g = c.getContext('2d');
-    for (let i = 0; i < 300; i++) { g.fillStyle = 'hsl(' + (i * 11 % 360) + ',80%,50%)'; g.fillRect(Math.random() * 1000, Math.random() * 1000, 80, 80); }
-    const url = c.toDataURL('image/jpeg', 0.95);
-    const img = document.querySelectorAll('#tableBody tr')[2].querySelector('.photo-img');
-    img.src = url; img.style.display = 'block';
-    return url.length;
-  });
-  await page.click('#fabEditorBtn');
-  await page.click('[data-click="compressPhotos"]');
-  await page.waitForFunction(() => /Сжато фото/.test(document.getElementById('snackbar').textContent), null, { timeout: 15000 });
-  const afterLen = await page.evaluate(() => document.querySelectorAll('#tableBody tr')[2].querySelector('.photo-img').getAttribute('src').length);
-  ok(afterLen < oldBig / 2, 'старое фото ' + Math.round(oldBig * 0.75 / 1024) + ' КБ → ' + Math.round(afterLen * 0.75 / 1024) + ' КБ');
   await page.waitForTimeout(700);
   await page.click('[data-click="goHome"]');
 
@@ -371,8 +356,8 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(1500);
   const cacheNames = await page.evaluate(() => caches.keys());
-  eq(cacheNames, ['tabel-o-rangah-v12'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
-  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v12').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
+  eq(cacheNames, ['tabel-o-rangah-v13'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
+  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v13').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
   ok(['/index.html', '/css/styles.css', '/js/app.js', '/js/storage.js', '/vendor/sortable.min.js', '/icons/icon-192.png'].every(p => cached.includes(p)), 'оболочка приложения закэширована (' + cached.length + ' файлов)');
   await page.reload();
   await page.waitForTimeout(500);
