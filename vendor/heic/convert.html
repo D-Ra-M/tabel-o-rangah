@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <!-- Эта страница живёт в sandbox-iframe без доступа к данным приложения.
+       eval и blob-воркеры нужны только библиотеке heic2any и разрешены только здесь. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval'; worker-src blob:; connect-src blob: data:; img-src blob: data:">
+  <title>Конвертер HEIC</title>
+</head>
+<body>
+  <script src="heic2any.min.js"></script>
+  <script src="convert.js"></script>
+</body>
+</html>
