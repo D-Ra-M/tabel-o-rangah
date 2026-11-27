@@ -952,12 +952,139 @@
     else importManyTables(data);
   }
 
-  function handleImportFile() {
+  /* ----- Импорт из Excel ----- */
+  let xlsxPending = null; // { workbook, groups }
+  let xlsxBusy = false;
+
+  function isExcelFile(file) {
+    return /\.(xlsx|xlsm|xltx|xltm)$/i.test(file.name || '');
+  }
+
+  function plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+
+  async function runExcelImport(file) {
+    closeImportFileModal();
+    UI.snackbar('Читаю файл Excel…');
+    let workbook;
+    try {
+      workbook = await window.TabelXlsx.parse(await file.arrayBuffer());
+    } catch (err) {
+      UI.alert('Ошибка чтения Excel', (err && err.message ? err.message : 'Не удалось прочитать файл.') + '\n\nПоддерживаются файлы .xlsx и .xlsm с колонками «Имя», 5, 4, 3, 2, 1, О, Н.', reopenImportModal);
+      return;
+    }
+    xlsxPending = { workbook, groups: workbook.groups };
+    const list = $('xlsxList');
+    list.textContent = '';
+    workbook.groups.forEach((g, i) => {
+      const label = document.createElement('label');
+      label.className = 'xlsx-item';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = true;
+      box.dataset.index = String(i);
+      const wrap = document.createElement('span');
+      const title = document.createElement('span');
+      title.className = 'xlsx-item-title';
+      title.textContent = g.title;
+      const info = document.createElement('span');
+      info.className = 'xlsx-item-info';
+      info.textContent = g.rows.length + ' ' + plural(g.rows.length, 'строка', 'строки', 'строк') +
+        ', заполнено: ' + g.filled + (g.photos ? ', фото: ' + g.photos : '');
+      wrap.appendChild(title);
+      wrap.appendChild(info);
+      label.appendChild(box);
+      label.appendChild(wrap);
+      list.appendChild(label);
+    });
+    $('xlsxStatus').textContent = '';
+    $('xlsxConfirmBtn').disabled = false;
+    $('xlsxCancelBtn').disabled = false;
+    UI.showModal('xlsxModal');
+  }
+
+  function closeXlsxModal() {
+    if (xlsxBusy) return;
+    xlsxPending = null;
+    UI.hideModal('xlsxModal');
+  }
+
+  async function confirmXlsxImport() {
+    if (!xlsxPending || xlsxBusy) return;
+    const chosen = Array.from($('xlsxList').querySelectorAll('input:checked')).map(b => xlsxPending.groups[Number(b.dataset.index)]);
+    if (!chosen.length) { $('xlsxStatus').textContent = 'Отметьте хотя бы одну таблицу.'; return; }
+    const { workbook } = xlsxPending;
+    xlsxBusy = true;
+    $('xlsxConfirmBtn').disabled = true;
+    $('xlsxCancelBtn').disabled = true;
+    const status = $('xlsxStatus');
+    const incoming = Object.create(null);
+    const renamed = [];
+    const now = Date.now();
+    let photoTotal = 0;
+    let photoDone = 0;
+    let photoFailed = 0;
+    chosen.forEach(g => g.rows.forEach(r => { if (r.image) photoTotal++; }));
+    try {
+      for (const g of chosen) {
+        const rows = [];
+        for (const r of g.rows) {
+          let photo = '';
+          if (r.image) {
+            status.textContent = 'Обработка фото: ' + (photoDone + photoFailed + 1) + ' из ' + photoTotal + '…';
+            try {
+              const blob = await workbook.readImage(r.image);
+              if (blob) {
+                const ext = (blob.type.split('/')[1] || 'img').replace('jpeg', 'jpg');
+                photo = await Photo.process(new File([blob], 'photo.' + ext, { type: blob.type }));
+                photoDone++;
+              } else photoFailed++;
+            } catch (e) { photoFailed++; }
+          }
+          rows.push({ name: r.name, photo: photo, grades: r.grades, n: r.n });
+        }
+        let name = L.normalizeTableName(g.title) || 'Импортированная';
+        if (hasTable(name) || name in incoming) {
+          const unique = L.generateUniqueName(name, Object.keys(state.tables).concat(Object.keys(incoming)));
+          renamed.push(name + ' → ' + unique);
+          name = unique;
+        }
+        incoming[name] = Object.assign(L.sanitizeTable({ rows: rows }), { createdAt: now, updatedAt: now });
+      }
+      autoSave(false);
+      const names = Object.keys(incoming);
+      names.forEach(n => { state.tables[n] = incoming[n]; state.order.push(n); });
+      commit({ put: incoming, order: getTableOrder().slice() });
+      xlsxBusy = false;
+      closeXlsxModal();
+      renderTablesList();
+      UI.snackbar('Импортировано из Excel: ' + names.length + ' ' + plural(names.length, 'таблица', 'таблицы', 'таблиц') +
+        (photoFailed ? '. Фото не удалось перенести: ' + photoFailed : '') +
+        (renamed.length ? '. Переименованы: ' + renamed.join('; ') : ''));
+    } catch (err) {
+      xlsxBusy = false;
+      $('xlsxConfirmBtn').disabled = false;
+      $('xlsxCancelBtn').disabled = false;
+      status.textContent = 'Ошибка импорта: ' + (err && err.message ? err.message : 'неизвестная ошибка');
+    }
+  }
+
+  async function looksLikeZip(file) {
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    return head[0] === 0x50 && head[1] === 0x4b;
+  }
+
+  async function handleImportFile() {
     const file = $('importFileInput').files[0];
     const text = $('importPasteText').value.trim();
     if (!file && !text) {
       closeImportFileModal();
-      UI.alert('Импорт', 'Выберите JSON-файл или вставьте текст таблицы', reopenImportModal);
+      UI.alert('Импорт', 'Выберите файл Excel или JSON либо вставьте текст таблицы', reopenImportModal);
       return;
     }
     if (file && file.size > IMPORT_MAX_BYTES) {
@@ -965,6 +1092,12 @@
       UI.alert('Импорт', 'Файл слишком большой (максимум ' + (IMPORT_MAX_BYTES / 1024 / 1024) + ' МБ)');
       return;
     }
+    if (file && /\.xls$/i.test(file.name || '')) {
+      closeImportFileModal();
+      UI.alert('Импорт', 'Старый формат .xls не поддерживается. Откройте файл в Excel и сохраните как «Книга Excel (.xlsx)» или «с поддержкой макросов (.xlsm)».', reopenImportModal);
+      return;
+    }
+    if (file && (isExcelFile(file) || await looksLikeZip(file))) { runExcelImport(file); return; }
     if (!file) { runImport(text, 'Импортированная'); return; }
     const reader = new FileReader();
     reader.onload = e => runImport(e.target.result, file.name);
@@ -1165,7 +1298,8 @@
     confirmBulkTableDelete, cancelBulkTableDelete, confirmBulkRowDelete, cancelBulkRowDelete,
     saveTableWithName, closeSaveModal, confirmRename, closeRenameModal,
     confirmClear, closeClearModal, confirmImportName, closeImportNameModal,
-    closeExportSelectModal, closeManualCopy, handleImportFile, closeImportFileModal
+    closeExportSelectModal, closeManualCopy, handleImportFile, closeImportFileModal,
+    confirmXlsxImport, closeXlsxModal
   };
 
   document.addEventListener('click', function (e) {

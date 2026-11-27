@@ -204,14 +204,28 @@
       <h3 id="importFileTitle">Импорт из файла</h3>
       <label class="file-drop" id="fileDrop" for="importFileInput" tabindex="0">
         <span class="file-drop-title" id="importFileLabel">Выбрать файл</span>
-        <span class="file-drop-hint">JSON-файл, ранее сохранённый кнопкой «Экспорт» или «Резервная копия». Можно перетащить сюда.</span>
+        <span class="file-drop-hint">Файл Excel (.xlsx, .xlsm) или JSON, сохранённый кнопкой «Экспорт» / «Резервная копия». Можно перетащить сюда.</span>
       </label>
-      <input type="file" id="importFileInput" class="file-hidden" aria-label="Файл JSON">
-      <div class="modal-message">Если файл выбрать не удаётся, вставьте сюда текст таблицы, скопированный кнопкой «Копировать» в экспорте.</div>
+      <input type="file" id="importFileInput" class="file-hidden" aria-label="Файл Excel или JSON" accept=".xlsx,.xlsm,.json,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12">
+      <div class="modal-message">Из Excel переносятся имена, оценки (5, 4, 3, 2, 1, О, Н) и фотографии. Если JSON-файл выбрать не удаётся, вставьте сюда текст таблицы, скопированный кнопкой «Копировать» в экспорте.</div>
       <textarea id="importPasteText" class="paste-area" rows="4" placeholder='{"rows": [...]}' aria-label="Текст таблицы"></textarea>
       <div class="modal-btns">
         <button class="modal-confirm" type="button" data-click="handleImportFile">Импортировать</button>
         <button class="modal-cancel" type="button" data-click="closeImportFileModal">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Импорт из Excel: выбор найденных групп -->
+  <div class="modal-overlay" id="xlsxModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="xlsxTitle" aria-describedby="xlsxMessage">
+      <h3 id="xlsxTitle">Импорт из Excel</h3>
+      <div class="modal-message" id="xlsxMessage">Выберите, какие таблицы перенести. Каждая станет отдельной таблицей на сайте.</div>
+      <div class="xlsx-list" id="xlsxList"></div>
+      <div class="modal-message xlsx-status" id="xlsxStatus" role="status" aria-live="polite"></div>
+      <div class="modal-btns">
+        <button class="modal-confirm" id="xlsxConfirmBtn" type="button" data-click="confirmXlsxImport">Импортировать</button>
+        <button class="modal-cancel" id="xlsxCancelBtn" type="button" data-click="closeXlsxModal">Отмена</button>
       </div>
     </div>
   </div>
@@ -221,6 +235,7 @@
   <script src="js/storage.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/photo.js"></script>
+  <script src="js/xlsx.js"></script>
   <script src="js/app.js"></script>
   <script src="js/pwa.js"></script>
 </body>

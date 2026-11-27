@@ -757,6 +757,30 @@ img {max-width:100%}
       line-height: 1.4;
     }
 
+    .xlsx-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 45vh;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+    .xlsx-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      text-align: left;
+    }
+    .xlsx-item input { width: 20px; height: 20px; flex: none; }
+    .xlsx-item-title { font-size: 15px; font-weight: 500; color: #222; word-break: break-word; }
+    .xlsx-item-info { display: block; font-size: 12px; color: #888; }
+    .xlsx-status:empty { display: none; }
+
     .export-table-item {
       display: flex;
       justify-content: space-between;

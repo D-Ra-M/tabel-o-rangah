@@ -3,7 +3,7 @@
  * ВАЖНО: при изменении любого файла из APP_SHELL увеличивайте VERSION —
  * старый кэш удаляется при активации новой версии.
  */
-const VERSION = 'v13';
+const VERSION = 'v14';
 const CACHE_BASE = 'tabel-o-rangah';       // прежние версии использовали имя без суффикса
 const CACHE_NAME = CACHE_BASE + '-' + VERSION;
 
@@ -16,6 +16,7 @@ const APP_SHELL = [
   './js/storage.js',
   './js/ui.js',
   './js/photo.js',
+  './js/xlsx.js',
   './js/app.js',
   './js/pwa.js',
   './vendor/sortable.min.js',

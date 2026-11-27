@@ -32,7 +32,7 @@ check(!/\son[a-z]+\s*=\s*"/i.test(html), 'в index.html нет inline-обраб
 check(!/\sstyle\s*=\s*"/i.test(html), 'в index.html нет inline-стилей (style=…)');
 check(!/<script(?![^>]*\ssrc=)[^>]*>/i.test(html), 'в index.html нет inline-скриптов');
 check(!/<style[\s>]/i.test(html), 'в index.html нет <style>');
-['js/app.js', 'js/ui.js', 'js/photo.js', 'js/storage.js'].forEach(f => {
+['js/app.js', 'js/ui.js', 'js/photo.js', 'js/storage.js', 'js/xlsx.js'].forEach(f => {
   const src = read(f);
   check(!/setAttribute\(\s*['"]style['"]/.test(src) && !/style="/.test(src), f + ': нет inline-стилей в разметке');
   check(!/\son(click|change|input)=/.test(src), f + ': нет inline-обработчиков в разметке');

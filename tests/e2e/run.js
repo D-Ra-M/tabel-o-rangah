@@ -279,6 +279,63 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   eq(await page.$eval('#tableBody tr .name-inp', e => e.value), '<img src=x onerror=window.__pwned=1>', 'имя сохранено как обычный текст');
   await page.click('[data-click="goHome"]');
 
+  /* ---------- 9б. Импорт из Excel ---------- */
+  section('9б. Импорт из Excel (.xlsx): группы, оценки, фото');
+  await page.click('#fabMain');
+  await page.click('[data-click="fabImport"]');
+  await page.setInputFiles('#importFileInput', path.join(__dirname, '..', 'fixtures', 'sample.xlsx'));
+  await page.click('[data-click="handleImportFile"]');
+  await page.waitForSelector('#xlsxList .xlsx-item');
+  eq(await page.$$eval('.xlsx-item-title', e => e.map(x => x.textContent)), ['Группа А', 'Группа Б', 'Пустая группа'], 'найдены три группы из файла Excel');
+  await page.uncheck('#xlsxList input[data-index="2"]');
+  await page.click('#xlsxConfirmBtn');
+  await page.waitForFunction(() => /Импортировано из Excel: 2/.test(document.getElementById('snackbar').textContent), null, { timeout: 15000 });
+  eq(await page.$$eval('.table-card', c => c.map(x => x.dataset.name).slice(-2)), ['Группа А', 'Группа Б'], 'отмеченные группы стали таблицами, неотмеченная пропущена');
+  await page.click('.table-card[data-name="Группа А"] .table-card-info');
+  await page.waitForTimeout(300);
+  const excelRows = await page.$$eval('#tableBody tr', trs => trs.map(tr => ({
+    name: tr.querySelector('.name-inp').value,
+    grades: [...tr.querySelectorAll('.grade-inp')].map(i => i.value).join(','),
+    n: tr.querySelector('.n-inp').value,
+    score: tr.querySelector('.total-score').textContent,
+    photo: (tr.querySelector('.photo-img').getAttribute('src') || '').startsWith('data:image/jpeg')
+  })));
+  eq(excelRows.map(r => r.name), ['Петрова Анна', 'Иванов Иван', 'Сидоров, <b>X</b> & "Y"'], 'имена и порядок по баллам (как в Excel-формуле)');
+  eq(excelRows.map(r => r.score), ['50', '46', '17'], 'итоговые баллы совпадают с формулой Excel');
+  eq(excelRows[1].grades + '|' + excelRows[1].n, '3,2,1,0,0,1|2', 'оценки 5…1, «О» и «Н» попали в свои колонки');
+  eq(excelRows.map(r => r.photo), [false, true, true], 'фото из Excel привязаны к своим строкам');
+  await page.click('[data-click="goHome"]');
+  // повторный импорт: названия не затираются
+  await page.click('#fabMain');
+  await page.click('[data-click="fabImport"]');
+  await page.setInputFiles('#importFileInput', path.join(__dirname, '..', 'fixtures', 'sample.xlsx'));
+  await page.click('[data-click="handleImportFile"]');
+  await page.waitForSelector('#xlsxList .xlsx-item');
+  await page.uncheck('#xlsxList input[data-index="1"]');
+  await page.uncheck('#xlsxList input[data-index="2"]');
+  await page.click('#xlsxConfirmBtn');
+  await page.waitForFunction(() => /Переименованы: Группа А → Группа А \(1\)/.test(document.getElementById('snackbar').textContent), null, { timeout: 15000 });
+  ok(true, 'при совпадении названия таблица получает «(1)» и ничего не затирается');
+  // не Excel и старый формат .xls
+  await page.click('#fabMain');
+  await page.click('[data-click="fabImport"]');
+  await page.setInputFiles('#importFileInput', { name: 'old.xls', mimeType: 'application/vnd.ms-excel', buffer: Buffer.from('not a real xls') });
+  await page.click('[data-click="handleImportFile"]');
+  await page.waitForTimeout(300);
+  ok(/\.xls не поддерживается/.test(await page.textContent('#alertMessage')), 'старый .xls — понятное сообщение');
+  await page.click('#alertOkBtn');
+  await page.click('[data-click="closeImportFileModal"]');
+  await page.click('#fabMain');
+  await page.click('[data-click="fabImport"]');
+  await page.setInputFiles('#importFileInput', { name: 'broken.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('PK-not-a-zip') });
+  await page.click('[data-click="handleImportFile"]');
+  await page.waitForTimeout(500);
+  ok(/Ошибка чтения Excel/.test(await page.textContent('#alertTitle')), 'повреждённый .xlsx — понятная ошибка без падения');
+  await page.click('#alertOkBtn');
+  await page.click('[data-click="closeImportFileModal"]');
+  // чистим за собой, чтобы не влиять на следующие проверки
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+
   /* ---------- 10. Суточная копия и восстановление ---------- */
   section('10. Суточная копия (локальный день) и восстановление');
   dump = await idbDump(page);
@@ -356,8 +413,8 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(1500);
   const cacheNames = await page.evaluate(() => caches.keys());
-  eq(cacheNames, ['tabel-o-rangah-v13'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
-  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v13').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
+  eq(cacheNames, ['tabel-o-rangah-v14'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
+  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v14').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
   ok(['/index.html', '/css/styles.css', '/js/app.js', '/js/storage.js', '/vendor/sortable.min.js', '/icons/icon-192.png'].every(p => cached.includes(p)), 'оболочка приложения закэширована (' + cached.length + ' файлов)');
   await page.reload();
   await page.waitForTimeout(500);
