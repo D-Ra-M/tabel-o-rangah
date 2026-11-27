@@ -276,15 +276,18 @@
         const nameVal = get(h.cols.name);
         const grades = {};
         GRADE_KEYS.forEach(g => { grades[g] = numStr(get(h.cols[g])); });
-        if (image) photos++;
-        out.push({
+        const row = {
           name: nameVal == null ? '' : String(nameVal).trim(),
           grades: grades,
           n: numStr(get(h.cols.n)),
           image: image
-        });
+        };
+        // Пустые строки (шаблон без данных) не переносим: только имя, оценки, «Н» или фото.
+        if (row.name === '' && !image && num(row.n) === 0 && GRADE_KEYS.every(g => num(grades[g]) === 0)) continue;
+        if (image) photos++;
+        out.push(row);
       }
-      const filled = out.filter(x => x.name !== '' || GRADE_KEYS.some(g => num(x.grades[g]) !== 0) || num(x.n) !== 0).length;
+      const filled = out.length;
       const fallback = sheetCount > 1 ? sheetName : 'Таблица';
       return { title: h.title || (headers.length > 1 ? fallback + ' ' + (i + 1) : fallback), sheet: sheetName, rows: out, filled: filled, photos: photos };
     });

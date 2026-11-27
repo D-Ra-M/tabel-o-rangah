@@ -287,7 +287,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.click('[data-click="handleImportFile"]');
   await page.waitForSelector('#xlsxList .xlsx-item');
   eq(await page.$$eval('.xlsx-item-title', e => e.map(x => x.textContent)), ['Группа А', 'Группа Б', 'Пустая группа'], 'найдены три группы из файла Excel');
-  await page.uncheck('#xlsxList input[data-index="2"]');
+  eq(await page.$$eval('#xlsxList input', e => e.map(x => x.checked)), [true, true, false], 'группа без данных по умолчанию не отмечена');
   await page.click('#xlsxConfirmBtn');
   await page.waitForFunction(() => /Импортировано из Excel: 2/.test(document.getElementById('snackbar').textContent), null, { timeout: 15000 });
   eq(await page.$$eval('.table-card', c => c.map(x => x.dataset.name).slice(-2)), ['Группа А', 'Группа Б'], 'отмеченные группы стали таблицами, неотмеченная пропущена');
@@ -312,10 +312,17 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.click('[data-click="handleImportFile"]');
   await page.waitForSelector('#xlsxList .xlsx-item');
   await page.uncheck('#xlsxList input[data-index="1"]');
-  await page.uncheck('#xlsxList input[data-index="2"]');
   await page.click('#xlsxConfirmBtn');
   await page.waitForFunction(() => /Переименованы: Группа А → Группа А \(1\)/.test(document.getElementById('snackbar').textContent), null, { timeout: 15000 });
   ok(true, 'при совпадении названия таблица получает «(1)» и ничего не затирается');
+  // пустые строки шаблона не переносятся (файл сохранён с пустыми пронумерованными строками)
+  await page.click('#fabMain');
+  await page.click('[data-click="fabImport"]');
+  await page.setInputFiles('#importFileInput', path.join(__dirname, '..', 'fixtures', 'sample-with-empty-rows.xlsx'));
+  await page.click('[data-click="handleImportFile"]');
+  await page.waitForSelector('#xlsxList .xlsx-item');
+  eq(await page.$$eval('.xlsx-item-info', e => e.map(x => x.textContent.split(',')[0])), ['3 строки', '1 строка', 'нет данных'], 'в списке считаются только строки с данными (из 6 в группе)');
+  await page.click('#xlsxCancelBtn');
   // не Excel и старый формат .xls
   await page.click('#fabMain');
   await page.click('[data-click="fabImport"]');
@@ -413,8 +420,8 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(1500);
   const cacheNames = await page.evaluate(() => caches.keys());
-  eq(cacheNames, ['tabel-o-rangah-v14'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
-  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v14').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
+  eq(cacheNames, ['tabel-o-rangah-v15'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
+  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v15').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
   ok(['/index.html', '/css/styles.css', '/js/app.js', '/js/storage.js', '/vendor/sortable.min.js', '/icons/icon-192.png'].every(p => cached.includes(p)), 'оболочка приложения закэширована (' + cached.length + ' файлов)');
   await page.reload();
   await page.waitForTimeout(500);

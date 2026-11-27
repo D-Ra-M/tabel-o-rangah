@@ -986,7 +986,7 @@
       label.className = 'xlsx-item';
       const box = document.createElement('input');
       box.type = 'checkbox';
-      box.checked = true;
+      box.checked = g.rows.length > 0;
       box.dataset.index = String(i);
       const wrap = document.createElement('span');
       const title = document.createElement('span');
@@ -994,8 +994,9 @@
       title.textContent = g.title;
       const info = document.createElement('span');
       info.className = 'xlsx-item-info';
-      info.textContent = g.rows.length + ' ' + plural(g.rows.length, 'строка', 'строки', 'строк') +
-        ', заполнено: ' + g.filled + (g.photos ? ', фото: ' + g.photos : '');
+      info.textContent = g.rows.length
+        ? g.rows.length + ' ' + plural(g.rows.length, 'строка', 'строки', 'строк') + (g.photos ? ', фото: ' + g.photos : '')
+        : 'нет данных';
       wrap.appendChild(title);
       wrap.appendChild(info);
       label.appendChild(box);
