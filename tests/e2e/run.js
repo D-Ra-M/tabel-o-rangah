@@ -424,8 +424,8 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(1500);
   const cacheNames = await page.evaluate(() => caches.keys());
-  eq(cacheNames, ['tabel-o-rangah-v16'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
-  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v16').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
+  eq(cacheNames, ['tabel-o-rangah-v17'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
+  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v17').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
   ok(['/index.html', '/css/styles.css', '/js/app.js', '/js/storage.js', '/vendor/sortable.min.js', '/icons/icon-192.png'].every(p => cached.includes(p)), 'оболочка приложения закэширована (' + cached.length + ' файлов)');
   await page.reload();
   await page.waitForTimeout(500);
@@ -512,7 +512,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   ok(Object.keys(dark).filter(k => k !== 'bg').every(k => dark[k] >= 4.5), 'тёмная тема: контраст текстов не ниже 4.5:1');
   ok(light.bg !== dark.bg, 'тёмная тема включается по системной настройке (фон: ' + light.bg + ' → ' + dark.bg + ')');
 
-  // Телефон 320 px: оценки в два ряда, каждое поле не уже 44 px, без горизонтальной прокрутки
+  // Телефон 320 px: семь оценок в одну строку, каждое поле не уже 36 px и высотой 44 px, без горизонтальной прокрутки и пустой полосы внизу
   const phoneCtx = await browser.newContext({ viewport: { width: 320, height: 640 }, hasTouch: true, isMobile: true });
   const ph = await phoneCtx.newPage();
   await ph.goto(base + '/index.html');
@@ -522,8 +522,11 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await ph.click('#saveModalConfirm');
   await ph.waitForSelector('#editorView', { state: 'visible' });
   await ph.click('#fabAddRowBtn');
-  const sizes = await ph.evaluate(() => Array.from(document.querySelectorAll('#tableBody tr:first-child input')).filter(i => i.type !== 'checkbox' && i.type !== 'file').map(i => { const r = i.getBoundingClientRect(); return [i.className.split(' ')[0] + (i.dataset.grade || ''), Math.round(r.width), Math.round(r.height)]; }));
-  ok(sizes.filter(x => x[0].startsWith('grade') || x[0].startsWith('n-inp')).every(x => x[1] >= 44 && x[2] >= 44), 'телефон 320 px: все поля оценок не меньше 44×44 (' + JSON.stringify(sizes.map(x => x.join(':'))) + ')');
+  const gr = await ph.evaluate(() => Array.from(document.querySelectorAll('#tableBody tr:first-child td:nth-child(n+5):nth-child(-n+11) input')).map(i => { const r = i.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }));
+  eq(gr.length, 7, 'телефон 320 px: семь полей оценок (5, 4, 3, 2, 1, О, Н)');
+  eq(new Set(gr.map(x => x[0])).size, 1, 'телефон 320 px: все оценки в одной строке (' + JSON.stringify(gr) + ')');
+  ok(gr.every(x => x[1] >= 36 && x[2] >= 44), 'телефон 320 px: поля оценок не уже 36 px и высотой не меньше 44 px');
+  eq(await ph.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight), true, 'телефон 320 px: у страницы редактора нет своей прокрутки (нет пустой полосы внизу)');
   eq(await ph.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'телефон 320 px: нет горизонтальной прокрутки');
   await ph.close();
   await phoneCtx.close();

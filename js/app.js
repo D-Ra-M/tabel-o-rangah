@@ -126,6 +126,7 @@
     if (isBulkRowMode) cancelBulkRowDelete();
     if (isBulkTableMode) cancelBulkTableDelete();
     if (isDraggingMode) toggleMoveMode();
+    document.body.classList.remove('in-editor');
     $('editorView').style.display = 'none';
     $('homeView').style.display = 'block';
     $('fabContainer').style.display = 'block';
@@ -141,6 +142,7 @@
     if (isDraggingMode) toggleMoveMode();
     $('fabContainer').style.display = 'none';
     $('fabEditor').style.display = 'block';
+    document.body.classList.add('in-editor');
     $('homeView').style.display = 'none';
     $('editorView').style.display = 'flex';
     $('fabMain').classList.remove('rotated');
