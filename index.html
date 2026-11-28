@@ -9,7 +9,9 @@
   <meta name="referrer" content="no-referrer">
   <title>Табель о рангах</title>
   <meta name="description" content="Табель о рангах — удобные таблицы оценок и рейтингов.">
-  <meta name="theme-color" content="#f5f5f5">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -22,11 +24,12 @@
 <body>
 
   <!-- Уведомления -->
-  <div id="snackbar" role="status" aria-live="polite"></div>
+  <div id="snackbar" role="status" aria-live="polite"><span id="snackbarText"></span><button id="snackbarAction" type="button" hidden></button></div>
 
+  <main id="main">
   <!-- Главный экран -->
   <div id="homeView">
-    <div class="home-header" role="heading" aria-level="1">Таблицы <button id="installAppBtn" class="install-btn" type="button" hidden aria-label="Установить приложение">Установить</button></div>
+    <header class="home-header"><h1>Таблицы</h1><button id="installAppBtn" class="install-btn" type="button" hidden aria-label="Установить приложение">Установить</button></header>
     <div class="tables-list" id="tablesList"></div>
   </div>
 
@@ -34,7 +37,8 @@
   <div id="editorView" class="editor-view">
     <div class="editor-topbar">
       <button class="btn-back" type="button" data-click="goHome">Назад</button>
-      <div id="groupNameDisplay" role="heading" aria-level="2">Без названия</div>
+      <h1 id="groupNameDisplay">Без названия</h1>
+      <span id="saveStatus" class="save-status" aria-hidden="true"></span>
     </div>
     <div class="table-wrap">
       <table id="marksTable">
@@ -43,11 +47,7 @@
             <th scope="col">Фото</th>
             <th scope="col">№</th>
             <th scope="col">Имя</th>
-            <th scope="col" class="diag-cell">
-              <svg preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="0" x2="100%" y2="100%" stroke="#bbb" stroke-width="1"/></svg>
-              <span class="diag-top">Оценки</span>
-              <span class="diag-bottom">Кол-во</span>
-            </th>
+            <th scope="col">Кол-во</th>
             <th scope="col">5</th><th scope="col">4</th><th scope="col">3</th><th scope="col">2</th><th scope="col">1</th><th scope="col">О</th><th scope="col">Н</th>
             <th scope="col">Балл</th>
             <th scope="col"><span class="sr-only">Действия</span></th>
@@ -57,30 +57,35 @@
       </table>
     </div>
   </div>
+  </main>
 
-  <!-- Кнопка главного экрана -->
+  <!-- Главные действия главного экрана: «Создать таблицу» всегда на виду, остальное в меню «Ещё» -->
   <div class="fab-container" id="fabContainer">
     <button class="fab-done" id="fabDoneBtn" type="button" data-click="toggleMoveMode">Готово</button>
     <div class="fab-menu" id="fabMenu">
-      <button class="fab-mini create" type="button" data-click="fabCreate">Создать</button>
-      <button class="fab-mini bulk-delete" type="button" data-click="startBulkTableDelete">Удалить</button>
+      <button class="fab-mini bulk-delete" type="button" data-click="startBulkTableDelete">Удалить таблицы</button>
       <button class="fab-mini import" type="button" data-click="fabImport">Импорт</button>
       <button class="fab-mini export" id="fabExport" type="button" data-click="fabExportAll">Экспорт</button>
       <button class="fab-mini export" type="button" data-click="downloadFullBackup">Резервная копия</button>
       <button class="fab-mini restore" type="button" data-click="fabRestore">Восстановить</button>
     </div>
-    <button class="fab-main" id="fabMain" type="button" data-click="toggleFab" aria-label="Главное меню" aria-haspopup="true" aria-expanded="false">✎</button>
+    <div class="fab-bar">
+      <button class="fab-more" id="fabMain" type="button" data-click="toggleFab" aria-haspopup="true" aria-expanded="false" aria-controls="fabMenu">Ещё</button>
+      <button class="fab-primary" id="fabCreateBtn" type="button" data-click="fabCreate">+ Создать таблицу</button>
+    </div>
   </div>
 
-  <!-- Кнопка редактора (шестерёнка) -->
+  <!-- Главные действия редактора: «Добавить строку» на виду, остальное в меню «Ещё» -->
   <div class="fab-editor" id="fabEditor">
     <div class="fab-menu" id="fabEditorMenu">
-      <button class="fab-mini add" type="button" data-click="addRow">+ Добавить</button>
-      <button class="fab-mini bulk-delete" type="button" data-click="startBulkRowDelete">Удалить</button>
-      <button class="fab-mini save" type="button" data-click="saveTable">Сохранить</button>
-      <button class="fab-mini clear" type="button" data-click="showClearModal">Очистить</button>
+      <button class="fab-mini bulk-delete" type="button" data-click="startBulkRowDelete">Удалить строки</button>
+      <button class="fab-mini clear" type="button" data-click="showClearModal">Очистить таблицу</button>
+      <button class="fab-mini save" id="nameTableBtn" type="button" data-click="saveTable" hidden>Назвать таблицу</button>
     </div>
-    <button class="fab-main" id="fabEditorBtn" type="button" data-click="toggleEditorFab" aria-label="Действия с таблицей" aria-haspopup="true" aria-expanded="false">⚙</button>
+    <div class="fab-bar">
+      <button class="fab-more" id="fabEditorBtn" type="button" data-click="toggleEditorFab" aria-haspopup="true" aria-expanded="false" aria-controls="fabEditorMenu">Ещё</button>
+      <button class="fab-primary" id="fabAddRowBtn" type="button" data-click="addRow">+ Добавить строку</button>
+    </div>
   </div>
 
   <!-- Панели группового удаления -->

@@ -3,7 +3,7 @@
  * ВАЖНО: при изменении любого файла из APP_SHELL увеличивайте VERSION —
  * старый кэш удаляется при активации новой версии.
  */
-const VERSION = 'v15';
+const VERSION = 'v16';
 const CACHE_BASE = 'tabel-o-rangah';       // прежние версии использовали имя без суффикса
 const CACHE_NAME = CACHE_BASE + '-' + VERSION;
 

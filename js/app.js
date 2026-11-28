@@ -26,6 +26,32 @@
   let sortableInstance = null;
   let autoSaveTimer = null;
 
+  /* ===== Отмена удаления (снэкбар «Отменить» и Ctrl/⌘+Z) ===== */
+  let undoEntry = null; // { run, kind, timer }
+  function clearUndo() {
+    if (undoEntry) { clearTimeout(undoEntry.timer); undoEntry = null; }
+  }
+  function offerUndo(message, run, kind) {
+    clearUndo();
+    undoEntry = { run: run, kind: kind, timer: setTimeout(clearUndo, 60000) };
+    UI.snackbar(message, { actionLabel: 'Отменить', onAction: performUndo });
+  }
+  function performUndo() {
+    const entry = undoEntry;
+    if (!entry) return false;
+    clearUndo();
+    entry.run();
+    return true;
+  }
+  // Отмена удаления строк действует только в той таблице, где строки удалили.
+  function dropRowUndo() {
+    if (undoEntry && undoEntry.kind === 'rows') { clearUndo(); UI.hideSnackbar(); }
+  }
+
+  function setSaveStatus(text) {
+    $('saveStatus').textContent = text;
+  }
+
   /* ===== Хранилище ===== */
   function persistFailed(error) {
     console.error('Не удалось сохранить данные:', error);
@@ -33,7 +59,7 @@
   }
 
   function commit(change) {
-    return S.commit(change).catch(persistFailed);
+    return S.commit(change).then(() => true).catch(error => { persistFailed(error); return false; });
   }
 
   function getTableOrder() {
@@ -54,6 +80,7 @@
   /* ===== Признак изменений и автосохранение ===== */
   function markDirty() {
     state.dirty = true;
+    setSaveStatus('Сохранение…');
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => autoSave(false), 400);
   }
@@ -81,8 +108,9 @@
     state.tables[name] = table;
     if (!state.order.includes(name)) state.order.push(name);
     resetDirty();
-    commit({ put: { [name]: table }, order: getTableOrder().slice() });
-    if (showFeedback) UI.snackbar('Изменения сохранены');
+    setSaveStatus('Сохранение…');
+    commit({ put: { [name]: table }, order: getTableOrder().slice() })
+      .then(saved => { if (name === state.current) setSaveStatus(saved ? 'Сохранено' : 'Не сохранено'); });
   }
 
   // Сохраняем при сворачивании приложения, закрытии вкладки или уходе в фон.
@@ -104,6 +132,8 @@
     $('fabEditor').style.display = 'none';
     $('fabMain').classList.remove('rotated');
     state.current = null;
+    dropRowUndo();
+    setSaveStatus('');
     renderTablesList();
   }
 
@@ -115,6 +145,9 @@
     $('editorView').style.display = 'flex';
     $('fabMain').classList.remove('rotated');
     $('fabEditorBtn').classList.remove('rotated');
+    // Кнопка «Назвать таблицу» нужна, только если у открытой таблицы ещё нет названия.
+    $('nameTableBtn').hidden = state.current != null;
+    setSaveStatus('');
   }
 
   function goHome() {
@@ -128,7 +161,22 @@
     const btn = $(btnId);
     btn.classList.toggle('rotated', open);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      const first = $(menuId).querySelector('button:not([hidden]):not(.disabled)');
+      if (first) first.focus();
+    }
   }
+
+  // Esc закрывает открытое меню «Ещё» и возвращает фокус на его кнопку.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    [['fabMenu', 'fabMain'], ['fabEditorMenu', 'fabEditorBtn']].forEach(pair => {
+      if ($(pair[0]).classList.contains('open')) {
+        setFab(pair[0], pair[1], false);
+        $(pair[1]).focus();
+      }
+    });
+  });
 
   function toggleFab() {
     if (isDraggingMode) { UI.snackbar('Сначала завершите перемещение (нажмите «Готово»)'); return; }
@@ -175,9 +223,10 @@
     const keys = getTableOrder();
     const hasTables = keys.length > 0;
     $('fabExport').classList.toggle('disabled', !hasTables);
+    $('fabExport').setAttribute('aria-disabled', hasTables ? 'false' : 'true');
 
     if (!hasTables) {
-      container.innerHTML = '<div class="empty-state">Нет сохранённых таблиц.<br>Нажмите ✎ внизу справа, чтобы создать первую.</div>';
+      container.innerHTML = '<div class="empty-state">Таблиц пока нет.<br>Нажмите «Создать таблицу» внизу, чтобы добавить первую.</div>';
       if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
       $('fabDoneBtn').classList.remove('visible');
       $('fabMain').classList.remove('rotated');
@@ -188,7 +237,7 @@
       const t = state.tables[k];
       const name = L.escapeHtml(k);
       return `<div class="table-card" data-name="${name}">
-        <input class="table-select" type="checkbox" aria-label="Выбрать таблицу ${name}" data-change="bulkTableCount">
+        <label class="check-hit"><input class="table-select" type="checkbox" aria-label="Выбрать таблицу ${name}"></label>
         <div class="table-card-info" data-action="open" role="button" tabindex="0" aria-label="Открыть таблицу ${name}">
           <div class="table-card-name">${name}</div>
           <div class="table-card-meta">Создано: ${L.formatDate(t.createdAt)}</div>
@@ -321,20 +370,36 @@
     renderTablesList();
   }
 
+  // Вернуть удалённые таблицы на прежние места (имя меняется, только если оно уже занято).
+  function restoreTables(removed) {
+    const put = {};
+    removed.slice().sort((x, y) => x.index - y.index).forEach(item => {
+      const name = hasTable(item.name) ? L.generateUniqueName(item.name, Object.keys(state.tables)) : item.name;
+      state.tables[name] = item.table;
+      put[name] = item.table;
+      const order = getTableOrder().filter(n => n !== name);
+      order.splice(Math.min(item.index, order.length), 0, name);
+      state.order = order;
+    });
+    commit({ put: put, order: getTableOrder().slice() });
+    renderTablesList();
+    UI.snackbar(removed.length === 1 ? 'Таблица возвращена' : 'Возвращено таблиц: ' + removed.length);
+  }
+
   function confirmBulkTableDelete() {
     const names = Array.from(document.querySelectorAll('#tablesList .table-select:checked'))
       .map(x => x.closest('.table-card').dataset.name);
     if (!names.length) return;
-    UI.confirm('Удалить таблицы?', 'Будет удалено таблиц: ' + names.length + '. Это действие нельзя отменить.', function () {
-      names.forEach(n => { delete state.tables[n]; });
-      state.order = getTableOrder().filter(n => !names.includes(n));
-      commit({ remove: names, order: state.order.slice() });
-      isBulkTableMode = false;
-      $('tablesList').classList.remove('bulk-table-mode');
-      $('bulkTableBar').classList.remove('visible');
-      renderTablesList();
-      UI.snackbar('Удалено таблиц: ' + names.length);
-    }, null, true);
+    const order = getTableOrder().slice();
+    const removed = names.map(n => ({ name: n, table: state.tables[n], index: order.indexOf(n) }));
+    names.forEach(n => { delete state.tables[n]; });
+    state.order = order.filter(n => !names.includes(n));
+    commit({ remove: names, order: state.order.slice() });
+    isBulkTableMode = false;
+    $('tablesList').classList.remove('bulk-table-mode');
+    $('bulkTableBar').classList.remove('visible');
+    renderTablesList();
+    offerUndo('Удалено таблиц: ' + names.length, () => restoreTables(removed), 'tables');
   }
 
   function startBulkRowDelete() {
@@ -360,31 +425,42 @@
     $('bulkRowBar').classList.remove('visible');
   }
 
+  // Убрать строки из таблицы и предложить отмену: строки остаются в памяти вместе с введёнными данными.
+  function removeRows(rows) {
+    const tb = $('tableBody');
+    rows.forEach(row => { stopRowMarquee(row); row.remove(); });
+    refreshTable();
+    markDirty();
+    offerUndo(rows.length === 1 ? 'Строка удалена' : 'Удалено строк: ' + rows.length, function () {
+      rows.forEach(row => tb.appendChild(row));
+      refreshTable();
+      markDirty();
+      rows.forEach(row => startNameMarquee(row.querySelector('.name-inp')));
+      UI.snackbar(rows.length === 1 ? 'Строка возвращена' : 'Возвращено строк: ' + rows.length);
+    }, 'rows');
+  }
+
   function confirmBulkRowDelete() {
     const rows = Array.from(document.querySelectorAll('#tableBody .row-select:checked')).map(x => x.closest('tr')).filter(Boolean);
     if (!rows.length) return;
-    UI.confirm('Удалить строки?', 'Будет удалено строк: ' + rows.length + '. Это действие нельзя отменить.', function () {
-      rows.forEach(row => { stopRowMarquee(row); row.remove(); });
-      isBulkRowMode = false;
-      $('editorView').classList.remove('bulk-row-mode');
-      $('bulkRowBar').classList.remove('visible');
-      refreshTable();
-      markDirty();
-      UI.snackbar('Удалено строк: ' + rows.length);
-    }, null, true);
+    isBulkRowMode = false;
+    $('editorView').classList.remove('bulk-row-mode');
+    $('bulkRowBar').classList.remove('visible');
+    removeRows(rows);
   }
 
   /* ===== Удаление и переименование таблицы ===== */
   function deleteTable(name) {
-    UI.confirm('Удаление таблицы', 'Удалить таблицу «' + name + '»?', function () {
-      autoSave();
-      delete state.tables[name];
-      state.order = getTableOrder().filter(k => k !== name);
-      commit({ remove: [name], order: state.order.slice() });
-      renderTablesList();
-      UI.snackbar('Таблица удалена');
-      closeDropdowns();
-    }, null, true);
+    closeDropdowns();
+    autoSave(false);
+    if (!hasTable(name)) return;
+    const index = getTableOrder().indexOf(name);
+    const table = state.tables[name];
+    delete state.tables[name];
+    state.order = getTableOrder().filter(k => k !== name);
+    commit({ remove: [name], order: state.order.slice() });
+    renderTablesList();
+    offerUndo('Таблица «' + name + '» удалена', () => restoreTables([{ name: name, table: table, index: index }]), 'tables');
   }
 
   let renameTarget = null;
@@ -444,6 +520,7 @@
     if (isDraggingMode) { UI.snackbar('Сначала завершите перемещение (нажмите «Готово»)'); return; }
     autoSave();
     if (!hasTable(name)) return;
+    dropRowUndo();
     applyTableData(state.tables[name]);
     state.current = name;
     $('groupNameDisplay').textContent = name;
@@ -475,7 +552,7 @@
         newName = L.normalizeTableName(newName);
         if (!newName) return;
         if (hasTable(newName)) {
-          UI.alert('Ошибка', 'Таблица с таким именем уже существует. Введите другое название.');
+          UI.alert('Название уже занято', 'Таблица с таким именем уже существует. Введите другое название.');
           return;
         }
         const now = Date.now();
@@ -631,7 +708,7 @@
 
   function setRowPhoto(tr, dataUrl) {
     const img = tr.querySelector('.photo-img');
-    const lbl = tr.querySelector('.photo-wrap span');
+    const lbl = tr.querySelector('.photo-ph');
     if (dataUrl) {
       img.src = dataUrl;
       img.style.display = 'block';
@@ -639,7 +716,7 @@
     } else {
       img.removeAttribute('src');
       img.style.display = 'none';
-      if (lbl) lbl.style.display = 'block';
+      if (lbl) lbl.style.display = '';
     }
   }
 
@@ -700,7 +777,7 @@
     autoSave();
     closeFab();
     const keys = getTableOrder();
-    if (!keys.length) { UI.alert('Экспорт', 'Нет таблиц для экспорта'); return; }
+    if (!keys.length) { UI.snackbar('Нет таблиц для экспорта'); return; }
     $('exportTableList').innerHTML = keys.map(k => {
       const name = L.escapeHtml(k);
       return `<div class="export-table-item">
@@ -749,7 +826,7 @@
   async function copyTableText(name) {
     autoSave();
     const json = tableJson(name);
-    if (json === null) { UI.alert('Ошибка', 'Таблица не найдена'); return; }
+    if (json === null) { UI.alert('Не удалось найти таблицу', 'Возможно, её удалили в другом окне.'); return; }
     try {
       await navigator.clipboard.writeText(json);
       closeExportSelectModal();
@@ -775,14 +852,14 @@
   function exportSingleTable(name) {
     autoSave();
     const json = tableJson(name);
-    if (json === null) { UI.alert('Ошибка', 'Таблица не найдена'); return; }
+    if (json === null) { UI.alert('Не удалось найти таблицу', 'Возможно, её удалили в другом окне.'); return; }
     const fileName = (name.replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'table') + '.json';
     try {
       downloadText(json, fileName, 'application/json');
       closeExportSelectModal();
       UI.snackbar('Таблица «' + name + '» экспортирована');
     } catch (err) {
-      UI.alert('Ошибка экспорта', 'Не удалось сохранить файл.');
+      UI.alert('Не удалось сохранить файл', 'Попробуйте скопировать таблицу кнопкой «Копировать».');
     }
   }
 
@@ -803,7 +880,7 @@
     let backup = null;
     try { backup = await S.getBackup(); } catch (e) { console.error(e); }
     if (!backup) {
-      UI.alert('Восстановление', 'Автоматическая копия ещё не создана. Она появляется при первой правке за день и хранит состояние на начало дня.');
+      UI.snackbar('Автоматической копии пока нет: она появляется при первой правке за день.');
       return;
     }
     const names = backup.order.filter(n => n in backup.tables);
@@ -829,7 +906,7 @@
         commit({ put: put, order: getTableOrder().slice() });
         renderTablesList();
         UI.snackbar('Восстановлено таблиц: ' + added);
-      });
+      }, null, false, 'Восстановить');
   }
 
   /* ===== Импорт ===== */
@@ -920,7 +997,7 @@
     const names = Object.keys(incoming);
     if (!names.length) {
       closeImportFileModal();
-      UI.alert('Ошибка импорта', 'В файле не найдено ни одной таблицы.', reopenImportModal);
+      UI.alert('В файле нет таблиц', 'В файле не найдено ни одной таблицы.', reopenImportModal);
       return;
     }
     autoSave(false);
@@ -937,7 +1014,7 @@
       data = JSON.parse(raw);
     } catch (err) {
       closeImportFileModal();
-      UI.alert('Ошибка чтения файла',
+      UI.alert('Не удалось прочитать файл',
         err.message +
         '\n\nВозможные причины:\n• В файле есть незакрытая кавычка (например, в названии или фамилии)\n• Не хватает запятой между полями\n• Файл повреждён или содержит недопустимые символы\n\nПроверьте файл в любом текстовом редакторе и убедитесь, что он является корректным JSON.',
         reopenImportModal);
@@ -945,7 +1022,7 @@
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       closeImportFileModal();
-      UI.alert('Ошибка импорта', 'Неверный формат JSON', reopenImportModal);
+      UI.alert('Файл не похож на таблицу', 'Неверный формат JSON', reopenImportModal);
       return;
     }
     if (Array.isArray(data.rows)) importSingleTable(data, fileName);
@@ -975,7 +1052,7 @@
     try {
       workbook = await window.TabelXlsx.parse(await file.arrayBuffer());
     } catch (err) {
-      UI.alert('Ошибка чтения Excel', (err && err.message ? err.message : 'Не удалось прочитать файл.') + '\n\nПоддерживаются файлы .xlsx и .xlsm с колонками «Имя», 5, 4, 3, 2, 1, О, Н.', reopenImportModal);
+      UI.alert('Не удалось прочитать файл Excel', (err && err.message ? err.message : 'Не удалось прочитать файл.') + '\n\nПоддерживаются файлы .xlsx и .xlsm с колонками «Имя», 5, 4, 3, 2, 1, О, Н.', reopenImportModal);
       return;
     }
     xlsxPending = { workbook, groups: workbook.groups };
@@ -1085,17 +1162,17 @@
     const text = $('importPasteText').value.trim();
     if (!file && !text) {
       closeImportFileModal();
-      UI.alert('Импорт', 'Выберите файл Excel или JSON либо вставьте текст таблицы', reopenImportModal);
+      UI.alert('Нечего импортировать', 'Выберите файл Excel или JSON либо вставьте текст таблицы.', reopenImportModal);
       return;
     }
     if (file && file.size > IMPORT_MAX_BYTES) {
       closeImportFileModal();
-      UI.alert('Импорт', 'Файл слишком большой (максимум ' + (IMPORT_MAX_BYTES / 1024 / 1024) + ' МБ)');
+      UI.alert('Файл слишком большой', 'Максимальный размер — ' + (IMPORT_MAX_BYTES / 1024 / 1024) + ' МБ.');
       return;
     }
     if (file && /\.xls$/i.test(file.name || '')) {
       closeImportFileModal();
-      UI.alert('Импорт', 'Старый формат .xls не поддерживается. Откройте файл в Excel и сохраните как «Книга Excel (.xlsx)» или «с поддержкой макросов (.xlsm)».', reopenImportModal);
+      UI.alert('Формат .xls не поддерживается', 'Старый формат .xls не поддерживается. Откройте файл в Excel и сохраните как «Книга Excel (.xlsx)» или «с поддержкой макросов (.xlsm)».', reopenImportModal);
       return;
     }
     if (file && (isExcelFile(file) || await looksLikeZip(file))) { runExcelImport(file); return; }
@@ -1104,7 +1181,7 @@
     reader.onload = e => runImport(e.target.result, file.name);
     reader.onerror = function () {
       closeImportFileModal();
-      UI.alert('Ошибка чтения файла', 'Не удалось прочитать файл. Попробуйте вставить текст таблицы вручную.', reopenImportModal);
+      UI.alert('Не удалось прочитать файл', 'Попробуйте вставить текст таблицы вручную.', reopenImportModal);
     };
     reader.readAsText(file);
   }
@@ -1116,23 +1193,23 @@
       <td class="cell-photo">
         <div class="photo-wrap">
           <img class="photo-img" alt="">
-          <span aria-hidden="true">📷</span>
+          <span class="photo-ph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="photo-ph-text">Фото</span></span>
           <input type="file" accept="image/*,.heic,.heif" class="photo-inp" aria-label="Загрузить фото">
         </div>
       </td>
       <td class="row-num">1</td>
       <td><input type="text" class="name-inp" maxlength="200" placeholder="Имя" aria-label="Имя"></td>
       <td class="total-count">0</td>
-      <td><input type="number" data-grade="5" class="grade-inp" placeholder="-" aria-label="Оценка 5"></td>
-      <td><input type="number" data-grade="4" class="grade-inp" placeholder="-" aria-label="Оценка 4"></td>
-      <td><input type="number" data-grade="3" class="grade-inp" placeholder="-" aria-label="Оценка 3"></td>
-      <td><input type="number" data-grade="2" class="grade-inp" placeholder="-" aria-label="Оценка 2"></td>
-      <td><input type="number" data-grade="1" class="grade-inp" placeholder="-" aria-label="Оценка 1"></td>
-      <td><input type="number" data-grade="0" class="grade-inp late" placeholder="-" aria-label="Оценка 0"></td>
-      <td><input type="number" class="n-inp late" placeholder="-" aria-label="Пропуски (Н)"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" data-grade="5" class="grade-inp" placeholder="-" aria-label="Оценка 5"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" data-grade="4" class="grade-inp" placeholder="-" aria-label="Оценка 4"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" data-grade="3" class="grade-inp" placeholder="-" aria-label="Оценка 3"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" data-grade="2" class="grade-inp" placeholder="-" aria-label="Оценка 2"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" data-grade="1" class="grade-inp" placeholder="-" aria-label="Оценка 1"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" data-grade="0" class="grade-inp late" placeholder="-" aria-label="Опоздания (О)"></td>
+      <td><input type="number" inputmode="numeric" min="0" max="9999" step="1" class="n-inp late" placeholder="-" aria-label="Пропуски (Н)"></td>
       <td class="total-score">0</td>
       <td class="cell-actions">
-        <input class="row-select" type="checkbox" aria-label="Выбрать строку">
+        <label class="check-hit"><input class="row-select" type="checkbox" aria-label="Выбрать строку"></label>
         <button class="del-row-btn" type="button" aria-label="Удалить строку">×</button>
       </td>
     `;
@@ -1144,7 +1221,8 @@
     const wrap = inp.closest('.photo-wrap');
     if (!wrap) return;
     const tr = inp.closest('tr');
-    const lbl = wrap.querySelector('span');
+    const lbl = wrap.querySelector('.photo-ph-text');
+    const ph = wrap.querySelector('.photo-ph');
     const file = inp.files[0];
     if (!file) return;
     if (file.size > Photo.MAX_INPUT) {
@@ -1158,17 +1236,19 @@
       return;
     }
     const oldLabel = lbl ? lbl.textContent : '';
+    if (ph) ph.style.display = '';
     if (lbl) lbl.textContent = 'Обработка…';
     inp.disabled = true;
     try {
       const dataUrl = await Photo.process(file);
       if (tr.isConnected) {
-        if (lbl) lbl.textContent = oldLabel || '📷';
+        if (lbl) lbl.textContent = oldLabel || 'Фото';
         setRowPhoto(tr, dataUrl);
         markDirty();
       }
     } catch (error) {
-      if (lbl) { lbl.textContent = oldLabel || '📷'; lbl.style.display = 'block'; }
+      if (lbl) lbl.textContent = oldLabel || 'Фото';
+      if (ph) ph.style.display = '';
       UI.alert('Не удалось добавить фото', error && error.message ? error.message : 'Попробуйте другое изображение.');
     } finally {
       inp.disabled = false;
@@ -1181,14 +1261,7 @@
     if (!btn) return;
     const tr = btn.closest('tr');
     if (!tr) return;
-    const rowName = (tr.querySelector('.name-inp').value || '').trim();
-    const label = rowName ? ' «' + rowName + '»' : '';
-    UI.confirm('Удалить строку?', 'Вы действительно хотите удалить строку' + label + '? Это действие нельзя отменить.', function () {
-      stopRowMarquee(tr);
-      tr.remove();
-      refreshTable();
-      markDirty();
-    }, null, true);
+    removeRows([tr]);
   }
 
   /* ===== Пересчёт, места и сортировка ===== */
@@ -1221,10 +1294,12 @@
   }
 
   function addRow() {
-    $('tableBody').appendChild(createRow());
+    const tr = createRow();
+    $('tableBody').appendChild(tr);
     refreshTable();
     markDirty();
     closeEditorFab();
+    tr.scrollIntoView({ block: 'nearest' });
   }
 
   /* ===== События таблицы ===== */
@@ -1239,8 +1314,46 @@
     if (target.type === 'file' || target.tagName === 'BUTTON' || target.type === 'checkbox') return;
     markDirty();
     if (target.classList.contains('grade-inp') || target.classList.contains('n-inp')) {
+      validateNumberField(target);
       updateRowTotals(target.closest('tr'));
     }
+  });
+
+  // Поле принимает целые числа от 0 до 9999; ошибку видно сразу, а не после сохранения.
+  function validateNumberField(inp) {
+    const v = inp.value.trim();
+    let bad = inp.validity && inp.validity.badInput;
+    if (!bad && v !== '') {
+      const n = Number(v);
+      bad = !isFinite(n) || n < 0 || n > 9999 || Math.floor(n) !== n;
+    }
+    const was = inp.getAttribute('aria-invalid') === 'true';
+    if (bad) inp.setAttribute('aria-invalid', 'true'); else inp.removeAttribute('aria-invalid');
+    if (bad && !was) UI.snackbar('Введите целое число от 0 до 9999');
+  }
+
+  // Enter переходит в то же поле следующей строки.
+  tbody.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing || !e.target.matches('input[type="text"], input[type="number"]')) return;
+    const td = e.target.closest('td');
+    const next = td && td.parentElement.nextElementSibling;
+    if (!next) return;
+    const field = next.children[Array.prototype.indexOf.call(td.parentElement.children, td)];
+    const target = field && field.querySelector('input');
+    if (!target) return;
+    e.preventDefault();
+    target.focus();
+    if (target.select) target.select();
+  });
+
+  // Ctrl/⌘+Z возвращает последнее удаление (в полях ввода работает обычная отмена текста).
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || !undoEntry) return;
+    if (!/^[zя]$/i.test(e.key) && e.code !== 'KeyZ') return;
+    if (e.target.matches && e.target.matches('input, textarea')) return;
+    e.preventDefault();
+    UI.hideSnackbar();
+    performUndo();
   });
   tbody.addEventListener('blur', function (e) {
     const target = e.target;

@@ -9,15 +9,42 @@
   const $ = id => document.getElementById(id);
   const stack = []; // открытые окна: { el, opener }
 
-  /* ---------- Снэкбар ---------- */
+  /* ---------- Снэкбар ----------
+     snackbar(текст) — короткое сообщение; snackbar(текст, { actionLabel, onAction, duration }) —
+     сообщение с кнопкой (например, «Отменить»). Сообщение с кнопкой висит дольше. */
   let snackbarTimer = null;
-  function snackbar(message) {
+  let snackbarAction = null;
+  function hideSnackbar() {
+    clearTimeout(snackbarTimer);
+    snackbarAction = null;
+    $('snackbar').classList.remove('show');
+  }
+  function snackbar(message, options) {
+    const opts = options || {};
     const el = $('snackbar');
-    el.textContent = message;
+    const btn = $('snackbarAction');
+    $('snackbarText').textContent = message;
+    snackbarAction = null;
+    if (opts.actionLabel && typeof opts.onAction === 'function') {
+      btn.textContent = opts.actionLabel;
+      btn.hidden = false;
+      snackbarAction = opts.onAction;
+    } else {
+      btn.hidden = true;
+      btn.textContent = '';
+    }
     el.classList.add('show');
     clearTimeout(snackbarTimer);
-    snackbarTimer = setTimeout(() => el.classList.remove('show'), 3000);
+    // Время на прочтение растёт с длиной текста; сообщение с кнопкой — не меньше 10 секунд.
+    const base = Math.max(3000, Math.min(8000, String(message).length * 70));
+    const duration = opts.duration || (snackbarAction ? Math.max(10000, base) : base);
+    snackbarTimer = setTimeout(hideSnackbar, duration);
   }
+  $('snackbarAction').addEventListener('click', function () {
+    const fn = snackbarAction;
+    hideSnackbar();
+    if (fn) fn();
+  });
 
   /* ---------- Модальные окна ---------- */
   function visibleFocusable(root) {
@@ -99,12 +126,13 @@
     };
   }
 
-  function confirmModal(title, message, onConfirm, onCancel, isDanger) {
+  function confirmModal(title, message, onConfirm, onCancel, isDanger, confirmLabel) {
     $('confirmTitle').textContent = title || 'Подтверждение';
     $('confirmMessage').textContent = message || '';
     const modal = $('confirmModal');
     const yes = $('confirmYesBtn');
     yes.classList.toggle('danger', !!isDanger);
+    yes.textContent = confirmLabel || 'Подтвердить';
     showModal(modal);
     yes.onclick = function () {
       hideModal(modal);
@@ -139,7 +167,7 @@
   }
 
   window.TabelUI = {
-    snackbar, showModal, hideModal,
+    snackbar, hideSnackbar, showModal, hideModal,
     alert: alertModal, confirm: confirmModal, prompt: promptModal
   };
 })();

@@ -123,8 +123,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
     'расчёт и порядок совпадают с прежней версией');
 
   section('3. Равные баллы делят место, пустая строка без медали');
-  await page.click('#fabEditorBtn');
-  await page.click('[data-click="addRow"]');
+  await page.click('#fabAddRowBtn');
   const newIdx = (await page.locator('#tableBody tr').count()) - 1;
   const newRow = page.locator('#tableBody tr').nth(newIdx);
   await newRow.locator('.name-inp').fill('Двойник Кузнецовой');
@@ -143,8 +142,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.click('[data-click="goHome"]');
   await page.click('.table-card[data-name="Без названия"] .table-card-info');
   await page.waitForTimeout(150);
-  await page.click('#fabEditorBtn');
-  await page.click('[data-click="addRow"]');
+  await page.click('#fabAddRowBtn');
   await page.locator('#tableBody tr .name-inp').first().fill('Строка в таблице «Без названия»');
   await page.waitForTimeout(700);
   dump = await idbDump(page);
@@ -153,8 +151,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
 
   /* ---------- 5. Создание, переименование, удаление, порядок ---------- */
   section('5. Создание, переименование, удаление, групповое удаление');
-  await page.click('#fabMain');
-  await page.click('[data-click="fabCreate"]');
+  await page.click('#fabCreateBtn');
   await page.fill('#saveName', 'Новая');
   await page.click('#saveModalConfirm');
   await page.waitForSelector('#editorView', { state: 'visible' });
@@ -170,10 +167,19 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   eq(dump.meta.order.includes('Переименованная'), true, 'порядок обновлён при переименовании');
   await page.click('.table-card[data-name="Переименованная"] .dots-btn');
   await page.click('.table-card[data-name="Переименованная"] [data-action="delete"]');
-  await page.click('#confirmYesBtn');
   await page.waitForTimeout(200);
   dump = await idbDump(page);
-  ok(!dump.tables.includes('Переименованная'), 'удаление убирает запись из хранилища');
+  ok(!dump.tables.includes('Переименованная'), 'удаление убирает запись из хранилища (без вопроса, с возможностью отмены)');
+  ok(await page.isVisible('#snackbarAction') && /Отменить/.test(await page.textContent('#snackbar')), 'после удаления в уведомлении есть кнопка «Отменить»');
+  await page.click('#snackbarAction');
+  await page.waitForTimeout(200);
+  dump = await idbDump(page);
+  ok(dump.tables.includes('Переименованная') && dump.meta.order.includes('Переименованная'), 'отмена возвращает таблицу и её место в списке');
+  await page.click('.table-card[data-name="Переименованная"] .dots-btn');
+  await page.click('.table-card[data-name="Переименованная"] [data-action="delete"]');
+  await page.waitForTimeout(200);
+  dump = await idbDump(page);
+  ok(!dump.tables.includes('Переименованная'), 'повторное удаление снова убирает запись');
 
   /* ---------- 6. Фото ---------- */
   section('6. Фото: большой JPEG → компактное превью; GIF и неподдерживаемые файлы');
@@ -263,7 +269,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.fill('#importPasteText', '{"rows": [');
   await page.click('[data-click="handleImportFile"]');
   await page.waitForSelector('#alertModal', { state: 'visible' });
-  ok((await page.textContent('#alertTitle')).includes('Ошибка чтения'), 'битый JSON даёт понятную ошибку');
+  ok((await page.textContent('#alertTitle')).includes('Не удалось прочитать файл'), 'битый JSON даёт понятную ошибку');
   await page.click('#alertOkBtn');
   await page.waitForSelector('#importFileModal', { state: 'visible' });
   await page.click('#importFileModal [data-click="closeImportFileModal"]');
@@ -337,7 +343,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.setInputFiles('#importFileInput', { name: 'broken.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('PK-not-a-zip') });
   await page.click('[data-click="handleImportFile"]');
   await page.waitForTimeout(500);
-  ok(/Ошибка чтения Excel/.test(await page.textContent('#alertTitle')), 'повреждённый .xlsx — понятная ошибка без падения');
+  ok(/Не удалось прочитать файл Excel/.test(await page.textContent('#alertTitle')), 'повреждённый .xlsx — понятная ошибка без падения');
   await page.click('#alertOkBtn');
   await page.click('[data-click="closeImportFileModal"]');
   // чистим за собой, чтобы не влиять на следующие проверки
@@ -351,7 +357,6 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   eq(dump.backups[0].day, today, 'день копии — локальный');
   await page.click('.table-card[data-name="9А класс (1)"] .dots-btn');
   await page.click('.table-card[data-name="9А класс (1)"] [data-action="delete"]');
-  await page.click('#confirmYesBtn');
   await page.waitForTimeout(300);
   await page.click('#fabMain');
   await page.click('[data-click="fabRestore"]');
@@ -402,8 +407,7 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.waitForSelector('#editorView', { state: 'visible' });
   ok(true, 'карточку таблицы можно открыть клавиатурой (Enter)');
   await page.click('[data-click="goHome"]');
-  await page.click('#fabMain');
-  await page.click('[data-click="fabCreate"]');
+  await page.click('#fabCreateBtn');
   eq(await page.evaluate(() => document.activeElement.id), 'saveName', 'при открытии окна фокус переходит в поле ввода');
   for (let i = 0; i < 6; i++) await page.keyboard.press('Tab');
   ok(await page.evaluate(() => !!document.activeElement.closest('#saveModal')), 'фокус не выходит за пределы открытого окна (ловушка фокуса)');
@@ -420,8 +424,8 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(1500);
   const cacheNames = await page.evaluate(() => caches.keys());
-  eq(cacheNames, ['tabel-o-rangah-v15'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
-  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v15').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
+  eq(cacheNames, ['tabel-o-rangah-v16'], 'остался только кэш текущей версии (старый «tabel-o-rangah» удалён)');
+  const cached = await page.evaluate(() => caches.open('tabel-o-rangah-v16').then(c => c.keys()).then(ks => ks.map(k => new URL(k.url).pathname)));
   ok(['/index.html', '/css/styles.css', '/js/app.js', '/js/storage.js', '/vendor/sortable.min.js', '/icons/icon-192.png'].every(p => cached.includes(p)), 'оболочка приложения закэширована (' + cached.length + ' файлов)');
   await page.reload();
   await page.waitForTimeout(500);
@@ -444,6 +448,85 @@ const idbDump = page => page.evaluate(() => new Promise((resolve, reject) => {
   const page3 = await newPage(ctx, base, problems);
   eq(await page3.$$eval('.table-card', c => c.map(x => x.dataset.name)), names, 'после перезапуска те же таблицы в том же порядке');
   eq(await page3.evaluate(() => window.__csp), [], 'нет нарушений CSP');
+
+  section('15. Улучшения по аудиту: меню, отмена, проверка полей, статус сохранения');
+  // Закрытое меню «Ещё» не получает фокус с клавиатуры и не читается скринридером
+  eq(await page3.evaluate(() => getComputedStyle(document.getElementById('fabMenu')).visibility), 'hidden', 'закрытое меню «Ещё» скрыто для клавиатуры и скринридера');
+  eq(await page3.evaluate(() => { const b = document.querySelector('#fabMenu button'); b.focus(); return document.activeElement === b; }), false, 'кнопка закрытого меню не получает фокус');
+  ok(await page3.isVisible('#fabCreateBtn'), 'кнопка «Создать таблицу» всегда на виду');
+  await page3.click('#fabMain');
+  eq(await page3.evaluate(() => getComputedStyle(document.getElementById('fabMenu')).visibility), 'visible', 'открытое меню видимо');
+  ok(await page3.evaluate(() => !!document.activeElement.closest('#fabMenu')), 'при открытии меню фокус переходит на первый пункт');
+  await page3.keyboard.press('Escape');
+  eq(await page3.evaluate(() => [document.getElementById('fabMenu').classList.contains('open'), document.activeElement.id]), [false, 'fabMain'], 'Esc закрывает меню и возвращает фокус на кнопку «Ещё»');
+
+  await page3.click('.table-card[data-name="Без названия"] .table-card-info');
+  await page3.waitForSelector('#editorView', { state: 'visible' });
+  const rowsBefore = await page3.locator('#tableBody tr').count();
+  await page3.click('#fabAddRowBtn');
+  const lastRow = page3.locator('#tableBody tr').last();
+  await lastRow.locator('.name-inp').fill('Удаляемая строка');
+  await lastRow.locator('[data-grade="5"]').fill('-1');
+  eq(await lastRow.locator('[data-grade="5"]').getAttribute('aria-invalid'), 'true', 'недопустимое число помечается aria-invalid');
+  await lastRow.locator('[data-grade="5"]').fill('3');
+  eq(await lastRow.locator('[data-grade="5"]').getAttribute('aria-invalid'), null, 'допустимое число снимает пометку');
+  await page3.waitForTimeout(700);
+  eq(await page3.textContent('#saveStatus'), 'Сохранено', 'в верхней панели виден статус «Сохранено»');
+  await page3.locator('#tableBody tr').filter({ has: page3.locator('.name-inp') }).last().locator('.del-row-btn').click();
+  eq(await page3.locator('#tableBody tr').count(), rowsBefore, 'строка удаляется без вопроса');
+  await page3.click('#snackbarAction');
+  eq(await page3.locator('#tableBody tr').count(), rowsBefore + 1, 'кнопка «Отменить» возвращает строку');
+  eq(await page3.locator('#tableBody .name-inp').evaluateAll(a => a.map(x => x.value).includes('Удаляемая строка')), true, 'вернувшаяся строка сохранила введённые данные');
+  await page3.locator('#tableBody tr').filter({ has: page3.locator('.name-inp') }).last().locator('.del-row-btn').click();
+  await page3.keyboard.press('Control+z');
+  eq(await page3.locator('#tableBody tr').count(), rowsBefore + 1, 'Ctrl+Z возвращает последнее удаление');
+  await page3.click('[data-click="goHome"]');
+
+  // Размер текста: шрифты в rem следуют настройке размера текста
+  const basePx = await page3.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
+  await page3.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  const bigPx = await page3.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
+  eq(bigPx, basePx * 2, 'размер текста масштабируется вместе с настройкой браузера (200 %)');
+  await page3.evaluate(() => { document.documentElement.style.fontSize = ''; });
+
+  // Тёмная и светлая тема: контраст основных текстов не ниже 4.5:1
+  const contrastCheck = scheme => browser.newContext({ viewport: { width: 1000, height: 700 }, colorScheme: scheme }).then(async c => {
+    const pg = await c.newPage();
+    await pg.goto(base + '/index.html');
+    await pg.waitForSelector('#tablesList');
+    const emptyRatio = await pg.evaluate(() => {
+      const lum = rgb => { const v = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+      const bgOf = el => { while (el) { const b = getComputedStyle(el).backgroundColor; if (!/rgba\(.*, 0\)|transparent/.test(b)) return b; el = el.parentElement; } return 'rgb(255,255,255)'; };
+      const ratio = el => { const a = lum(getComputedStyle(el).color), b = lum(bgOf(el)); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); };
+      const out = {};
+      [['empty', '.empty-state'], ['primary', '#fabCreateBtn'], ['more', '#fabMain'], ['title', '.home-header h1']].forEach(([k, sel]) => { out[k] = ratio(document.querySelector(sel)); });
+      out.bg = getComputedStyle(document.body).backgroundColor;
+      return out;
+    });
+    await c.close();
+    return emptyRatio;
+  });
+  const light = await contrastCheck('light');
+  const dark = await contrastCheck('dark');
+  ok(Object.keys(light).filter(k => k !== 'bg').every(k => light[k] >= 4.5), 'светлая тема: контраст текстов не ниже 4.5:1 (' + JSON.stringify(light) + ')');
+  ok(Object.keys(dark).filter(k => k !== 'bg').every(k => dark[k] >= 4.5), 'тёмная тема: контраст текстов не ниже 4.5:1');
+  ok(light.bg !== dark.bg, 'тёмная тема включается по системной настройке (фон: ' + light.bg + ' → ' + dark.bg + ')');
+
+  // Телефон 320 px: оценки в два ряда, каждое поле не уже 44 px, без горизонтальной прокрутки
+  const phoneCtx = await browser.newContext({ viewport: { width: 320, height: 640 }, hasTouch: true, isMobile: true });
+  const ph = await phoneCtx.newPage();
+  await ph.goto(base + '/index.html');
+  await ph.waitForSelector('#tablesList');
+  await ph.click('#fabCreateBtn');
+  await ph.fill('#saveName', 'Телефон');
+  await ph.click('#saveModalConfirm');
+  await ph.waitForSelector('#editorView', { state: 'visible' });
+  await ph.click('#fabAddRowBtn');
+  const sizes = await ph.evaluate(() => Array.from(document.querySelectorAll('#tableBody tr:first-child input')).filter(i => i.type !== 'checkbox' && i.type !== 'file').map(i => { const r = i.getBoundingClientRect(); return [i.className.split(' ')[0] + (i.dataset.grade || ''), Math.round(r.width), Math.round(r.height)]; }));
+  ok(sizes.filter(x => x[0].startsWith('grade') || x[0].startsWith('n-inp')).every(x => x[1] >= 44 && x[2] >= 44), 'телефон 320 px: все поля оценок не меньше 44×44 (' + JSON.stringify(sizes.map(x => x.join(':'))) + ')');
+  eq(await ph.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'телефон 320 px: нет горизонтальной прокрутки');
+  await ph.close();
+  await phoneCtx.close();
 
   section('Ошибки в консоли за весь прогон');
   const real = problems.filter(p => !/Failed to load resource.*(404|net::ERR_INTERNET_DISCONNECTED)|ERR_INTERNET_DISCONNECTED|nonexistent/.test(p));
